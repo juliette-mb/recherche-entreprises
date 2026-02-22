@@ -187,6 +187,7 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
     """
     key = _pappers_key()
     print(f"[DEBUG] PAPPERS_API_KEY: len={len(key)}, val={key[:6]!r}")
+    print(f"[DEBUG] ALL ENV KEYS: {sorted(os.environ.keys())}")
     print("\nRecherche Pappers en cours...")
 
     companies: list[dict] = []
