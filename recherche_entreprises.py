@@ -79,10 +79,13 @@ def region_to_code(region: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Clés API — définies via variables d'environnement (voir .env.example)
+# Clés API — lues à chaque appel depuis les variables d'environnement
 # ---------------------------------------------------------------------------
-PAPPERS_API_KEY = os.environ.get("PAPPERS_API_KEY", "")
-FULLENRICH_API_KEY = os.environ.get("FULLENRICH_API_KEY", "")
+def _pappers_key() -> str:
+    return os.environ.get("_pappers_key()", "")
+
+def _fullenrich_key() -> str:
+    return os.environ.get("_fullenrich_key()", "")
 
 # ---------------------------------------------------------------------------
 # URLs de base
@@ -194,7 +197,7 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
 
     while len(companies) < args.max_resultats:
         params: dict = {
-            "api_token": PAPPERS_API_KEY,
+            "api_token": _pappers_key(),
             "par_page": par_page,
             "page": page,
         }
@@ -284,7 +287,7 @@ def get_company_details(siren: str) -> dict:
     try:
         resp = requests.get(
             f"{PAPPERS_BASE_URL}/entreprise",
-            params={"api_token": PAPPERS_API_KEY, "siren": siren},
+            params={"api_token": _pappers_key(), "siren": siren},
             timeout=30,
         )
         resp.raise_for_status()
@@ -432,7 +435,7 @@ def get_fullenrich_credits() -> int | None:
     try:
         resp = requests.get(
             f"{FULLENRICH_BASE_URL}/account/credits",
-            headers={"Authorization": f"Bearer {FULLENRICH_API_KEY}"},
+            headers={"Authorization": f"Bearer {_fullenrich_key()}"},
             timeout=15,
         )
         resp.raise_for_status()
@@ -510,7 +513,7 @@ def enrich_with_fullenrich(companies_info: list[dict]) -> list[dict]:
     }
 
     headers = {
-        "Authorization": f"Bearer {FULLENRICH_API_KEY}",
+        "Authorization": f"Bearer {_fullenrich_key()}",
         "Content-Type": "application/json",
     }
 
@@ -546,7 +549,7 @@ def enrich_with_fullenrich(companies_info: list[dict]) -> list[dict]:
         try:
             resp = requests.get(
                 f"{FULLENRICH_BASE_URL}/contact/enrich/bulk/{enrichment_id}",
-                headers={"Authorization": f"Bearer {FULLENRICH_API_KEY}"},
+                headers={"Authorization": f"Bearer {_fullenrich_key()}"},
                 timeout=30,
             )
             if resp.status_code == 402:
