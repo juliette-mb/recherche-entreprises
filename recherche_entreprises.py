@@ -82,10 +82,10 @@ def region_to_code(region: str) -> str:
 # Clés API — lues à chaque appel depuis les variables d'environnement
 # ---------------------------------------------------------------------------
 def _pappers_key() -> str:
-    return os.environ.get("_pappers_key()", "")
+    return os.environ.get("PAPPERS_TOKEN") or os.environ.get("PAPPERS_API_KEY", "")
 
 def _fullenrich_key() -> str:
-    return os.environ.get("_fullenrich_key()", "")
+    return os.environ.get("FULLENRICH_API_KEY", "")
 
 # ---------------------------------------------------------------------------
 # URLs de base
