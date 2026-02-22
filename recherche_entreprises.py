@@ -185,9 +185,6 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
     Interroge l'endpoint /recherche de Pappers avec les critères fournis.
     Retourne la liste brute des entreprises (format Pappers).
     """
-    key = _pappers_key()
-    print(f"[DEBUG] PAPPERS_API_KEY: len={len(key)}, val={key[:6]!r}")
-    print(f"[DEBUG] ALL ENV KEYS: {sorted(os.environ.keys())}")
     print("\nRecherche Pappers en cours...")
 
     companies: list[dict] = []
