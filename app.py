@@ -18,6 +18,7 @@ import time
 from functools import wraps
 from types import SimpleNamespace
 
+import requests
 from dotenv import load_dotenv
 from flask import (
     Flask,
@@ -31,6 +32,10 @@ from flask import (
 )
 
 from recherche_entreprises import (
+    FULLENRICH_BASE_URL,
+    FULLENRICH_POLL_INTERVAL,
+    FULLENRICH_POLL_MAX,
+    _fullenrich_key,
     extract_company_info,
     get_company_details,
     search_pappers,
@@ -202,11 +207,19 @@ def api_search():
     # Filtre effectif côté serveur
     companies_info = _filter_effectif(companies_info, args.effectif_min, args.effectif_max)
 
-    # Nettoyage des champs internes (préfixe "_")
-    clean = [
-        {k: v for k, v in c.items() if not k.startswith("_")}
-        for c in companies_info
-    ]
+    # Nettoyage + ajout des données d'enrichissement Fullenrich
+    clean = []
+    for c in companies_info:
+        row = {k: v for k, v in c.items() if not k.startswith("_")}
+        # Inclure les données nécessaires à Fullenrich (non affichées dans le tableau)
+        if c.get("_prenom") or c.get("_nom"):
+            row["_enrich"] = {
+                "prenom": c.get("_prenom", ""),
+                "nom": c.get("_nom", ""),
+                "domain": c.get("_domaine", ""),
+                "company_name": c.get("_nom_entreprise_raw", ""),
+            }
+        clean.append(row)
 
     return jsonify({"results": clean, "total": len(clean)})
 
@@ -238,6 +251,127 @@ def api_export():
         f"attachment; filename=entreprises_{int(time.time())}.csv"
     )
     return response
+
+
+# ---------------------------------------------------------------------------
+# API — Fullenrich
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/fullenrich/credits", methods=["GET"])
+@login_required
+def api_fullenrich_credits():
+    """Retourne le solde de crédits Fullenrich."""
+    try:
+        resp = requests.get(
+            f"{FULLENRICH_BASE_URL}/account/credits",
+            headers={"Authorization": f"Bearer {_fullenrich_key()}"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        return jsonify({"balance": resp.json().get("balance")})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/fullenrich/enrich", methods=["POST"])
+@login_required
+def api_fullenrich_enrich():
+    """Soumet des contacts à Fullenrich et attend les résultats (polling serveur)."""
+    data = request.get_json(silent=True) or {}
+    contacts = data.get("contacts", [])
+
+    if not contacts:
+        return jsonify({"error": "Aucun contact à enrichir."}), 400
+
+    try:
+        result = _do_fullenrich_enrich(contacts)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except TimeoutError as e:
+        return jsonify({"error": str(e)}), 504
+    except requests.exceptions.HTTPError as e:
+        return jsonify({"error": f"Erreur Fullenrich ({e.response.status_code})"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Erreur Fullenrich : {str(e)}"}), 502
+
+
+def _do_fullenrich_enrich(contacts: list[dict]) -> dict:
+    """
+    Soumet les contacts en bulk à Fullenrich, poll jusqu'à FINISHED.
+    contacts : [{prenom, nom, domain, company_name}, ...]
+    Retourne : {enriched: [{index, email, mobile}], credits_used, total_submitted}
+    """
+    auth_headers = {
+        "Authorization": f"Bearer {_fullenrich_key()}",
+        "Content-Type": "application/json",
+    }
+
+    # Construction du payload
+    payload_data = []
+    for c in contacts:
+        entry: dict = {
+            "first_name": c.get("prenom", ""),
+            "last_name": c.get("nom", ""),
+            "enrich_fields": ["contact.emails", "contact.phones"],
+        }
+        if c.get("domain"):
+            entry["domain"] = c["domain"]
+        elif c.get("company_name"):
+            entry["company_name"] = c["company_name"]
+        payload_data.append(entry)
+
+    # Soumission
+    resp = requests.post(
+        f"{FULLENRICH_BASE_URL}/contact/enrich/bulk",
+        json={"name": f"web-{int(time.time())}", "data": payload_data},
+        headers=auth_headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    enrichment_id = resp.json().get("enrichment_id") or resp.json().get("id", "")
+    if not enrichment_id:
+        raise ValueError("Pas d'identifiant d'enrichissement reçu.")
+
+    # Polling
+    for _ in range(FULLENRICH_POLL_MAX):
+        time.sleep(FULLENRICH_POLL_INTERVAL)
+        poll = requests.get(
+            f"{FULLENRICH_BASE_URL}/contact/enrich/bulk/{enrichment_id}",
+            headers={"Authorization": f"Bearer {_fullenrich_key()}"},
+            timeout=30,
+        )
+        if poll.status_code == 402:
+            raise ValueError("Crédits Fullenrich insuffisants (402).")
+        if 400 <= poll.status_code < 500:
+            raise ValueError(f"Erreur Fullenrich {poll.status_code} : {poll.text[:200]}")
+        poll.raise_for_status()
+
+        result = poll.json()
+        status = result.get("status", "UNKNOWN").upper()
+
+        if status == "FINISHED":
+            enriched = []
+            for i, record in enumerate(result.get("data", [])):
+                contact_info = record.get("contact_info") or {}
+                email = (
+                    (contact_info.get("most_probable_work_email") or {}).get("email")
+                    or (contact_info.get("most_probable_personal_email") or {}).get("email")
+                    or ""
+                )
+                mobile = (contact_info.get("most_probable_phone") or {}).get("number", "")
+                enriched.append({"index": i, "email": email, "mobile": mobile})
+            return {
+                "enriched": enriched,
+                "credits_used": result.get("cost", {}).get("credits", 0),
+                "total_submitted": len(contacts),
+            }
+
+        if status in ("CANCELED", "CREDITS_INSUFFICIENT", "RATE_LIMIT"):
+            raise ValueError(f"Enrichissement interrompu : {status}")
+
+    raise TimeoutError("Timeout : résultats Fullenrich non reçus.")
 
 
 # ---------------------------------------------------------------------------
