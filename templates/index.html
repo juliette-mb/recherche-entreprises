@@ -673,6 +673,11 @@
         <div class="filters-grid">
 
           <div class="field-group">
+            <label for="f-nom">Nom de l'entreprise</label>
+            <input type="text" id="f-nom" name="nom_entreprise" placeholder="Dupont SAS, Plomberie…">
+          </div>
+
+          <div class="field-group">
             <label for="f-secteur">Secteur d'activité</label>
             <input type="text" id="f-secteur" name="secteur" placeholder="plomberie ou 4322A">
           </div>
@@ -774,6 +779,22 @@
               <div class="field-group">
                 <label for="f-eff-max">Effectif max</label>
                 <input type="number" id="f-eff-max" name="effectif_max" placeholder="50" min="0">
+              </div>
+
+              <div class="field-group">
+                <label for="f-rn-min">Résultat net min</label>
+                <div class="input-with-suffix">
+                  <input type="number" id="f-rn-min" name="resultat_net_min" placeholder="-500000">
+                  <span class="suffix">€</span>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label for="f-rn-max">Résultat net max</label>
+                <div class="input-with-suffix">
+                  <input type="number" id="f-rn-max" name="resultat_net_max" placeholder="1000000">
+                  <span class="suffix">€</span>
+                </div>
               </div>
 
               <div class="field-group">
@@ -890,6 +911,7 @@
           <tr>
             <th>Entreprise</th>
             <th>Chiffre d'affaires</th>
+            <th class="hide-mobile">Résultat net</th>
             <th class="hide-mobile">Effectif</th>
             <th class="hide-mobile">Adresse</th>
             <th>Dirigeant</th>
@@ -937,6 +959,20 @@
       return n.toLocaleString('fr-FR') + '&nbsp;€';
     }
 
+    function fmtRN(val) {
+      if (val === '' || val === null || val === undefined) return '<span class="empty-cell">—</span>';
+      const n = Number(val);
+      if (isNaN(n)) return '<span class="empty-cell">—</span>';
+      const abs = Math.abs(n);
+      let fmt;
+      if (abs >= 1_000_000) fmt = (abs / 1_000_000).toLocaleString('fr-FR', {maximumFractionDigits: 1}) + '&nbsp;M€';
+      else if (abs >= 1_000) fmt = (abs / 1_000).toLocaleString('fr-FR', {maximumFractionDigits: 0}) + '&nbsp;k€';
+      else fmt = abs.toLocaleString('fr-FR') + '&nbsp;€';
+      const color = n < 0 ? 'var(--red)' : n > 0 ? 'var(--green)' : 'var(--gray-700)';
+      const prefix = n < 0 ? '−' : '';
+      return `<span style="color:${color};font-weight:600">${prefix}${fmt}</span>`;
+    }
+
     function esc(s) {
       if (!s) return '';
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -977,6 +1013,7 @@
             ${r.site_web ? `<br><a href="https://${esc(r.site_web)}" target="_blank" style="font-size:.75rem;color:var(--blue)">${esc(r.site_web)}</a>` : ''}
           </td>
           <td class="td-ca">${fmtCA(r.chiffre_affaires)}</td>
+          <td class="hide-mobile">${fmtRN(r.resultat_net)}</td>
           <td class="hide-mobile">${empty(r.effectif)}</td>
           <td class="hide-mobile" style="max-width:180px;font-size:.75rem;color:var(--gray-500)">${empty(r.adresse)}</td>
           <td class="contact-cell">${dirLine}</td>
@@ -993,6 +1030,7 @@
       const btn  = document.getElementById('searchBtn');
 
       const payload = {
+        nom_entreprise:    form.nom_entreprise.value.trim(),
         secteur:           form.secteur.value.trim(),
         region:            form.region.value,
         departement:       form.departement.value.trim(),
@@ -1004,6 +1042,8 @@
         forme_juridique:   form.forme_juridique.value,
         effectif_min:      form.effectif_min.value,
         effectif_max:      form.effectif_max.value,
+        resultat_net_min:  form.resultat_net_min.value,
+        resultat_net_max:  form.resultat_net_max.value,
         date_creation_min: form.date_creation_min.value,
         ville:             form.ville.value.trim(),
         statut_rcs:        form.statut_rcs.value,

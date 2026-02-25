@@ -242,6 +242,10 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
         if statut_rcs:
             params["statut_rcs"] = statut_rcs
 
+        nom_entreprise = getattr(args, 'nom_entreprise', None)
+        if nom_entreprise:
+            params["denomination"] = nom_entreprise.strip()
+
         try:
             resp = requests.get(
                 f"{PAPPERS_BASE_URL}/recherche",
@@ -325,11 +329,13 @@ def extract_company_info(company: dict, details: dict) -> dict:
     # --- Finances ---
     # La recherche expose directement chiffre_affaires à la racine ; le détail
     # le met dans finances[0]. On prend la valeur la plus riche disponible.
+    finances0 = (details.get("finances") or [{}])[0]
     ca = (
         company.get("chiffre_affaires")
-        or (details.get("finances") or [{}])[0].get("chiffre_affaires")
+        or finances0.get("chiffre_affaires")
         or ""
     )
+    resultat_net = finances0.get("resultat") if finances0 else None
 
     # --- Effectif ---
     # effectifs_finances (nombre entier) > effectif (chaîne) > tranche_effectif
@@ -337,7 +343,7 @@ def extract_company_info(company: dict, details: dict) -> dict:
         company.get("effectifs_finances")
         or details.get("effectif")
         or company.get("effectif")
-        or (details.get("finances") or [{}])[0].get("effectif")
+        or finances0.get("effectif")
         or details.get("tranche_effectif")
         or company.get("tranche_effectif")
         or ""
@@ -407,6 +413,7 @@ def extract_company_info(company: dict, details: dict) -> dict:
         "nom_entreprise": nom,
         "siren": siren,
         "chiffre_affaires": ca,
+        "resultat_net": resultat_net if resultat_net is not None else "",
         "effectif": effectif,
         "adresse": adresse,
         "site_web": site_web,
@@ -415,15 +422,16 @@ def extract_company_info(company: dict, details: dict) -> dict:
         "email_dirigeant": "",
         "mobile_dirigeant": "",
         "pappers_url": pappers_url,
-        # Champs internes pour Fullenrich (non exportés dans le CSV)
+        # Champs internes (non exportés dans le CSV)
         "_prenom": prenom_dir,
         "_nom": nom_dir,
         "_domaine": site_web,
         "_nom_entreprise_raw": nom,
         "_effectifs_finances": (
             company.get("effectifs_finances")
-            or (details.get("finances") or [{}])[0].get("effectif")
+            or finances0.get("effectif")
         ),
+        "_resultat_net": resultat_net,
     }
 
 

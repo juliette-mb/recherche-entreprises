@@ -55,6 +55,7 @@ CSV_FIELDS = [
     "nom_entreprise",
     "siren",
     "chiffre_affaires",
+    "resultat_net",
     "effectif",
     "adresse",
     "site_web",
@@ -148,6 +149,28 @@ def _filter_effectif(companies, min_val, max_val):
     return result
 
 
+def _filter_resultat_net(companies, min_val, max_val):
+    """Filtre côté serveur sur _resultat_net. Inclut les entreprises sans valeur connue."""
+    if min_val is None and max_val is None:
+        return companies
+    result = []
+    for c in companies:
+        val = c.get("_resultat_net")
+        if val is None:
+            result.append(c)
+            continue
+        try:
+            n = int(val)
+            if min_val is not None and n < min_val:
+                continue
+            if max_val is not None and n > max_val:
+                continue
+            result.append(c)
+        except (TypeError, ValueError):
+            result.append(c)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # API — Recherche
 # ---------------------------------------------------------------------------
@@ -167,6 +190,7 @@ def api_search():
         data.get("ca_min"),
         data.get("ca_max"),
         data.get("ville"),
+        data.get("nom_entreprise"),
     ]):
         return jsonify({"error": "Veuillez renseigner au moins un critère de recherche."}), 400
 
@@ -178,10 +202,13 @@ def api_search():
         ca_max=_int(data.get("ca_max")),
         age_min_dirigeant=_int(data.get("age_min_dirigeant")),
         max_resultats=_int(data.get("max_resultats")) or 20,
+        nom_entreprise=data.get("nom_entreprise", "").strip() or None,
         # Filtres avancés
         categorie_juridique=data.get("forme_juridique", "").strip() or None,
         effectif_min=_int(data.get("effectif_min")),
         effectif_max=_int(data.get("effectif_max")),
+        resultat_net_min=_int(data.get("resultat_net_min")),
+        resultat_net_max=_int(data.get("resultat_net_max")),
         date_creation_min=data.get("date_creation_min", "").strip() or None,
         ville=data.get("ville", "").strip() or None,
         statut_rcs=data.get("statut_rcs", "").strip() or None,
@@ -204,8 +231,9 @@ def api_search():
             time.sleep(0.3)
         companies_info.append(extract_company_info(company, details))
 
-    # Filtre effectif côté serveur
+    # Filtres côté serveur
     companies_info = _filter_effectif(companies_info, args.effectif_min, args.effectif_max)
+    companies_info = _filter_resultat_net(companies_info, args.resultat_net_min, args.resultat_net_max)
 
     # Nettoyage + ajout des données d'enrichissement Fullenrich
     clean = []
