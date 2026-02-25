@@ -598,6 +598,32 @@
 
     .btn-confirm-enrich:hover { background: var(--blue-dark); }
 
+    /* ── Enrich type selector ── */
+    .enrich-type-opt {
+      display: flex;
+      align-items: center;
+      gap: .375rem;
+      padding: .375rem .75rem;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 7px;
+      font-size: .8125rem;
+      font-weight: 500;
+      color: var(--gray-600);
+      cursor: pointer;
+      transition: all .15s;
+      user-select: none;
+    }
+
+    .enrich-type-opt:has(input:checked) {
+      border-color: var(--blue);
+      background: var(--blue-light);
+      color: var(--blue);
+    }
+
+    .enrich-type-opt input[type="radio"] {
+      display: none;
+    }
+
     /* ── Enrich loading ── */
     .enrich-loading {
       display: none;
@@ -894,6 +920,22 @@
         Enrichissement Fullenrich
       </div>
       <div class="enrich-summary" id="enrichSummary"></div>
+
+      <div style="display:flex;gap:.5rem;margin-bottom:.875rem;">
+        <label class="enrich-type-opt">
+          <input type="radio" name="enrichType" value="both" checked>
+          <span>Email + Téléphone</span>
+        </label>
+        <label class="enrich-type-opt">
+          <input type="radio" name="enrichType" value="email">
+          <span>Email uniquement</span>
+        </label>
+        <label class="enrich-type-opt">
+          <input type="radio" name="enrichType" value="phone">
+          <span>Téléphone uniquement</span>
+        </label>
+      </div>
+
       <div class="enrich-confirm-actions">
         <button class="btn-cancel-enrich" onclick="cancelEnrich()">Annuler</button>
         <button class="btn-confirm-enrich" onclick="doEnrich()">Confirmer l'enrichissement →</button>
@@ -1197,6 +1239,8 @@
       show('enrichLoading');
       document.getElementById('enrichBtn').disabled = true;
 
+      const enrichType = document.querySelector('input[name="enrichType"]:checked')?.value || 'both';
+
       const contacts = pendingEnrichContacts.map(c => ({
         prenom:       c.prenom       || '',
         nom:          c.nom          || '',
@@ -1208,7 +1252,7 @@
         const res = await fetch('/api/fullenrich/enrich', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ contacts }),
+          body:    JSON.stringify({ contacts, enrich_type: enrichType }),
         });
         const data = await res.json();
 

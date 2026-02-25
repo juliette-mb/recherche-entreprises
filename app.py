@@ -314,8 +314,12 @@ def api_fullenrich_enrich():
     if not contacts:
         return jsonify({"error": "Aucun contact à enrichir."}), 400
 
+    enrich_type = data.get("enrich_type", "both")
+    if enrich_type not in ("both", "email", "phone"):
+        enrich_type = "both"
+
     try:
-        result = _do_fullenrich_enrich(contacts)
+        result = _do_fullenrich_enrich(contacts, enrich_type)
         return jsonify(result)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -327,12 +331,20 @@ def api_fullenrich_enrich():
         return jsonify({"error": f"Erreur Fullenrich : {str(e)}"}), 502
 
 
-def _do_fullenrich_enrich(contacts: list[dict]) -> dict:
+def _do_fullenrich_enrich(contacts: list[dict], enrich_type: str = "both") -> dict:
     """
     Soumet les contacts en bulk à Fullenrich, poll jusqu'à FINISHED.
     contacts : [{prenom, nom, domain, company_name}, ...]
+    enrich_type : "both" | "email" | "phone"
     Retourne : {enriched: [{index, email, mobile}], credits_used, total_submitted}
     """
+    if enrich_type == "email":
+        enrich_fields = ["contact.emails"]
+    elif enrich_type == "phone":
+        enrich_fields = ["contact.phones"]
+    else:
+        enrich_fields = ["contact.emails", "contact.phones"]
+
     auth_headers = {
         "Authorization": f"Bearer {_fullenrich_key()}",
         "Content-Type": "application/json",
@@ -344,7 +356,7 @@ def _do_fullenrich_enrich(contacts: list[dict]) -> dict:
         entry: dict = {
             "first_name": c.get("prenom", ""),
             "last_name": c.get("nom", ""),
-            "enrich_fields": ["contact.emails", "contact.phones"],
+            "enrich_fields": enrich_fields,
         }
         if c.get("domain"):
             entry["domain"] = c["domain"]
