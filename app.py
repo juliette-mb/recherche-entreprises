@@ -191,6 +191,7 @@ def api_search():
         data.get("ca_max"),
         data.get("ville"),
         data.get("nom_entreprise"),
+        data.get("nom_dirigeant"),
     ]):
         return jsonify({"error": "Veuillez renseigner au moins un critère de recherche."}), 400
 
@@ -203,6 +204,7 @@ def api_search():
         age_min_dirigeant=_int(data.get("age_min_dirigeant")),
         max_resultats=_int(data.get("max_resultats")) or 20,
         nom_entreprise=data.get("nom_entreprise", "").strip() or None,
+        nom_dirigeant=data.get("nom_dirigeant", "").strip() or None,
         # Filtres avancés
         categorie_juridique=data.get("forme_juridique", "").strip() or None,
         effectif_min=_int(data.get("effectif_min")),
