@@ -770,8 +770,13 @@
           </div>
 
           <div class="field-group">
-            <label for="f-dirigeant">Nom du dirigeant</label>
-            <input type="text" id="f-dirigeant" name="nom_dirigeant" placeholder="Martin, Dupont…">
+            <label for="f-dirigeant-nom">Nom du dirigeant</label>
+            <input type="text" id="f-dirigeant-nom" name="nom_dirigeant" placeholder="Martin, Dupont…">
+          </div>
+
+          <div class="field-group">
+            <label for="f-dirigeant-prenom">Prénom du dirigeant</label>
+            <input type="text" id="f-dirigeant-prenom" name="prenom_dirigeant" placeholder="Jean, Marie…">
           </div>
 
           <div class="field-group">
@@ -1124,6 +1129,7 @@
       const payload = {
         nom_entreprise:    form.nom_entreprise.value.trim(),
         nom_dirigeant:     form.nom_dirigeant.value.trim(),
+        prenom_dirigeant:  form.prenom_dirigeant.value.trim(),
         secteur:           form.secteur.value.trim(),
         region:            form.region.value,
         departement:       form.departement.value.trim(),

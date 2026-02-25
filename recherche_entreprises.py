@@ -250,6 +250,10 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
         if nom_dirigeant:
             params["nom_dirigeant"] = nom_dirigeant.strip()
 
+        prenom_dirigeant = getattr(args, 'prenom_dirigeant', None)
+        if prenom_dirigeant:
+            params["prenom_dirigeant"] = prenom_dirigeant.strip()
+
         try:
             resp = requests.get(
                 f"{PAPPERS_BASE_URL}/recherche",
