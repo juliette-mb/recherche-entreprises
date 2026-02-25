@@ -503,6 +503,13 @@
     .empty-state h3 { font-size: 1rem; color: var(--gray-700); margin-bottom: .375rem; }
     .empty-state p { font-size: .875rem; color: var(--gray-400); }
 
+    /* ── Checkbox column ── */
+    .col-check { width: 2.5rem; padding-left: 1rem !important; padding-right: .25rem !important; }
+    .col-check input[type="checkbox"] {
+      width: 1rem; height: 1rem; cursor: pointer; accent-color: var(--blue);
+    }
+    .col-check input[type="checkbox"]:disabled { opacity: .3; cursor: default; }
+
     /* ── Enrich button ── */
     .enrich-btn {
       display: flex;
@@ -859,10 +866,6 @@
       <div class="results-count" id="resultsCount"></div>
       <div style="display:flex;gap:.5rem;">
         <button class="enrich-btn" id="enrichBtn" onclick="openEnrichConfirm()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
           Enrichir les contacts
         </button>
         <button class="export-btn" onclick="exportCSV()">
@@ -909,6 +912,7 @@
       <table>
         <thead>
           <tr>
+            <th class="col-check"><input type="checkbox" id="checkAll" title="Tout sélectionner" onchange="toggleSelectAll(this.checked)"></th>
             <th>Entreprise</th>
             <th>Chiffre d'affaires</th>
             <th class="hide-mobile">Résultat net</th>
@@ -944,6 +948,8 @@
       ['loading', 'errorBox', 'resultsHeader', 'tableWrap', 'emptyState',
        'enrichConfirm', 'enrichLoading', 'enrichResult']
         .forEach(hide);
+      const checkAll = document.getElementById('checkAll');
+      if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
     }
 
     function setLoadingStep(msg) {
@@ -986,8 +992,12 @@
     function renderResults(results) {
       const tbody = document.getElementById('resultsBody');
       tbody.innerHTML = '';
+      const checkAll = document.getElementById('checkAll');
+      if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
 
-      results.forEach(r => {
+      results.forEach((r, i) => {
+        const canEnrich = !!(r._enrich && (r._enrich.nom || r._enrich.prenom));
+
         const dirLine = r.nom_dirigeant
           ? `<div>${esc(r.nom_dirigeant)}</div>
              ${r.age_dirigeant ? `<span class="age-badge">⏳ ${r.age_dirigeant} ans</span>` : ''}`
@@ -1007,6 +1017,7 @@
           : '<span class="empty-cell">—</span>';
 
         tr.innerHTML = `
+          <td class="col-check"><input type="checkbox" class="row-check" data-idx="${i}" ${canEnrich ? '' : 'disabled'} onchange="updateEnrichBtn()"></td>
           <td class="td-company">
             <strong>${esc(r.nom_entreprise) || '—'}</strong>
             <span>${esc(r.siren)}</span>
@@ -1022,6 +1033,40 @@
         `;
         tbody.appendChild(tr);
       });
+
+      updateEnrichBtn();
+    }
+
+    function toggleSelectAll(checked) {
+      document.querySelectorAll('.row-check:not(:disabled)').forEach(cb => cb.checked = checked);
+      updateEnrichBtn();
+    }
+
+    function getCheckedIndices() {
+      return [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.idx));
+    }
+
+    function updateEnrichBtn() {
+      const btn = document.getElementById('enrichBtn');
+      if (!btn) return;
+      const checked = getCheckedIndices();
+      const enrichable = document.querySelectorAll('.row-check:not(:disabled)').length;
+      const n = checked.length;
+
+      // Mise à jour checkbox "tout sélectionner"
+      const checkAll = document.getElementById('checkAll');
+      if (checkAll && enrichable > 0) {
+        checkAll.checked = n === enrichable;
+        checkAll.indeterminate = n > 0 && n < enrichable;
+      }
+
+      if (n === 0) {
+        btn.textContent = 'Enrichir les contacts';
+        btn.disabled = enrichable === 0;
+      } else {
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Enrichir (${n} sélectionné${n > 1 ? 's' : ''})`;
+        btn.disabled = false;
+      }
     }
 
     // ── Recherche principale ────────────────────────────────────────────────
@@ -1104,13 +1149,18 @@
     let pendingEnrichContacts = [];
 
     async function openEnrichConfirm() {
-      // Collecte des contacts enrichissables (ceux qui ont un _enrich)
-      pendingEnrichContacts = currentResults
-        .map((r, i) => ({ index: i, ...(r._enrich || {}) }))
+      // Utilise les lignes cochées, ou toutes les enrichissables si aucune cochée
+      const checkedIdx = getCheckedIndices();
+      const indices = checkedIdx.length > 0
+        ? checkedIdx
+        : currentResults.map((_, i) => i);
+
+      pendingEnrichContacts = indices
+        .map(i => ({ index: i, ...(currentResults[i]._enrich || {}) }))
         .filter(c => c.nom || c.prenom);
 
       if (!pendingEnrichContacts.length) {
-        alert('Aucun dirigeant identifié dans les résultats — enrichissement impossible.');
+        alert('Aucun dirigeant identifié dans la sélection — enrichissement impossible.');
         return;
       }
 
