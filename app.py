@@ -633,6 +633,208 @@ def api_vendeurs_enrich(vid):
 
 
 # ---------------------------------------------------------------------------
+# Page Acheteurs
+# ---------------------------------------------------------------------------
+
+
+@app.route("/acheteurs")
+@login_required
+def acheteurs_page():
+    return render_template("acheteurs.html")
+
+
+# ---------------------------------------------------------------------------
+# API — Acheteurs CRUD
+# ---------------------------------------------------------------------------
+
+ACHETEUR_CSV_FIELDS = [
+    "nom", "prenom", "titre", "entreprise", "email", "telephone",
+    "secteurs_interet", "taille_cibles", "statut", "notes", "created_at",
+]
+
+
+@app.route("/api/acheteurs", methods=["GET"])
+@login_required
+def api_acheteurs_list():
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+    try:
+        res = supa.table("acheteurs").select("*").order("created_at", desc=True).execute()
+        return jsonify({"acheteurs": res.data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/acheteurs/export", methods=["GET"])
+@login_required
+def api_acheteurs_export():
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+    try:
+        res = supa.table("acheteurs").select("*").order("created_at", desc=True).execute()
+        acheteurs = res.data
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output, fieldnames=ACHETEUR_CSV_FIELDS, delimiter=";", extrasaction="ignore"
+    )
+    writer.writeheader()
+    writer.writerows(acheteurs)
+    csv_bytes = ("\ufeff" + output.getvalue()).encode("utf-8")
+    response = make_response(csv_bytes)
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=acheteurs_{int(time.time())}.csv"
+    )
+    return response
+
+
+@app.route("/api/acheteurs", methods=["POST"])
+@login_required
+def api_acheteurs_create():
+    data = request.get_json(force=True)
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    row = {
+        "nom":              data.get("nom") or "",
+        "prenom":           data.get("prenom") or "",
+        "titre":            data.get("titre") or "",
+        "entreprise":       data.get("entreprise") or "",
+        "email":            data.get("email") or "",
+        "telephone":        data.get("telephone") or "",
+        "secteurs_interet": data.get("secteurs_interet") or "",
+        "taille_cibles":    data.get("taille_cibles") or "",
+        "notes":            data.get("notes") or "",
+        "statut":           data.get("statut") or "prospect",
+    }
+    row = {k: v for k, v in row.items() if v is not None and v != ""}
+
+    try:
+        res = supa.table("acheteurs").insert(row).execute()
+        return jsonify({"acheteur": res.data[0] if res.data else {}}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/acheteurs/import", methods=["POST"])
+@login_required
+def api_acheteurs_import():
+    """
+    Reçoit une liste de noms d'entreprises et crée des prospects dans acheteurs.
+    Fullenrich Search API ne permet pas de chercher des contacts par entreprise + titre
+    seul — on crée des enregistrements vides que l'utilisateur enrichit ensuite.
+    """
+    data = request.get_json(silent=True) or {}
+    entreprises = [e.strip() for e in (data.get("entreprises") or []) if e and e.strip()]
+    if not entreprises:
+        return jsonify({"error": "Aucune entreprise fournie."}), 400
+
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    rows = [{"entreprise": nom, "statut": "prospect"} for nom in entreprises]
+    try:
+        res = supa.table("acheteurs").insert(rows).execute()
+        inserted = len(res.data) if res.data else len(rows)
+        return jsonify({"inserted": inserted, "total": len(entreprises)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/acheteurs/<aid>", methods=["PATCH"])
+@login_required
+def api_acheteurs_update(aid):
+    data = request.get_json(force=True)
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    allowed = {
+        "statut", "notes", "email", "telephone",
+        "nom", "prenom", "titre", "entreprise",
+        "secteurs_interet", "taille_cibles",
+    }
+    update = {k: v for k, v in data.items() if k in allowed}
+    if not update:
+        return jsonify({"error": "Aucun champ modifiable fourni."}), 400
+
+    try:
+        res = supa.table("acheteurs").update(update).eq("id", aid).execute()
+        return jsonify({"acheteur": res.data[0] if res.data else {}})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/acheteurs/<aid>", methods=["DELETE"])
+@login_required
+def api_acheteurs_delete(aid):
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+    try:
+        supa.table("acheteurs").delete().eq("id", aid).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/acheteurs/<aid>/enrich", methods=["POST"])
+@login_required
+def api_acheteurs_enrich(aid):
+    data = request.get_json(force=True)
+    enrich_type = data.get("enrich_type", "both")
+    if enrich_type not in ("both", "email", "phone"):
+        enrich_type = "both"
+
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    try:
+        res = supa.table("acheteurs").select("*").eq("id", aid).single().execute()
+        acheteur = res.data
+    except Exception as e:
+        return jsonify({"error": f"Acheteur non trouvé : {e}"}), 404
+
+    contacts = [{
+        "prenom":       acheteur.get("prenom") or "",
+        "nom":          acheteur.get("nom") or "",
+        "domain":       "",
+        "company_name": acheteur.get("entreprise") or "",
+    }]
+
+    try:
+        result = _do_fullenrich_enrich(contacts, enrich_type)
+    except (ValueError, TimeoutError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+    enriched = result.get("enriched", [{}])
+    e0 = enriched[0] if enriched else {}
+    update = {}
+    if e0.get("email"):
+        update["email"] = e0["email"]
+    if e0.get("mobile"):
+        update["telephone"] = e0["mobile"]
+    if update:
+        supa.table("acheteurs").update(update).eq("id", aid).execute()
+
+    return jsonify({
+        "email":        update.get("email", ""),
+        "telephone":    update.get("telephone", ""),
+        "credits_used": result.get("credits_used", 0),
+    })
+
+
+# ---------------------------------------------------------------------------
 # Lancement local
 # ---------------------------------------------------------------------------
 

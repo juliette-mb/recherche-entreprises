@@ -733,6 +733,7 @@
       <nav style="display:flex;gap:0;border-bottom:none;height:60px">
         <a href="/" style="padding:0 1rem;height:60px;display:flex;align-items:center;font-size:.875rem;font-weight:600;color:var(--blue);text-decoration:none;border-bottom:2px solid var(--blue);">Recherche</a>
         <a href="/vendeurs" style="padding:0 1rem;height:60px;display:flex;align-items:center;font-size:.875rem;font-weight:500;color:var(--gray-500);text-decoration:none;border-bottom:2px solid transparent;transition:color .15s;" onmouseover="this.style.color='var(--gray-700)'" onmouseout="this.style.color='var(--gray-500)'">Base Vendeurs</a>
+        <a href="/acheteurs" style="padding:0 1rem;height:60px;display:flex;align-items:center;font-size:.875rem;font-weight:500;color:var(--gray-500);text-decoration:none;border-bottom:2px solid transparent;transition:color .15s;" onmouseover="this.style.color='var(--gray-700)'" onmouseout="this.style.color='var(--gray-500)'">Base Acheteurs</a>
       </nav>
 
       <a href="/logout" class="logout-btn">
@@ -960,12 +961,19 @@
         <button class="enrich-btn" id="enrichBtn" onclick="openEnrichConfirm()">
           Enrichir les contacts
         </button>
-        <button class="export-btn" id="addBaseBtn" onclick="addToBase()" style="border-color:var(--blue);color:var(--blue)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-          </svg>
-          Ajouter à la base
-        </button>
+        <div style="position:relative;display:inline-block" id="addBaseWrap">
+          <button class="export-btn" id="addBaseBtn" onclick="toggleAddBaseMenu()" style="border-color:var(--blue);color:var(--blue);gap:.35rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Ajouter à la base
+            <svg width="10" height="6" style="margin-left:.1rem" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="currentColor"/></svg>
+          </button>
+          <div id="addBaseMenu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border:1.5px solid var(--gray-200);border-radius:8px;box-shadow:0 4px 12px rgb(0 0 0/.12);z-index:60;min-width:170px;overflow:hidden">
+            <button onclick="addToBase('vendeurs')" style="display:block;width:100%;padding:.625rem .875rem;background:none;border:none;font-size:.8125rem;font-family:inherit;color:var(--gray-700);text-align:left;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">📋 Base Vendeurs</button>
+            <button onclick="addToBase('acheteurs')" style="display:block;width:100%;padding:.625rem .875rem;background:none;border:none;font-size:.8125rem;font-family:inherit;color:var(--gray-700);text-align:left;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🎯 Base Acheteurs</button>
+          </div>
+        </div>
         <button class="export-btn" onclick="exportCSV()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1361,9 +1369,25 @@
       }
     }
 
-    // ── Ajouter à la base vendeurs ──────────────────────────────────────────
-    async function addToBase() {
+    // ── Dropdown "Ajouter à la base" ─────────────────────────────────────────
+    function toggleAddBaseMenu() {
+      const menu = document.getElementById('addBaseMenu');
+      const isOpen = menu.style.display !== 'none';
+      menu.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) {
+        setTimeout(() => document.addEventListener('click', _closeAddBaseMenu, { once: true }), 0);
+      }
+    }
+    function _closeAddBaseMenu(e) {
+      const wrap = document.getElementById('addBaseWrap');
+      if (!wrap.contains(e.target)) document.getElementById('addBaseMenu').style.display = 'none';
+    }
+
+    // ── Ajouter à la base (vendeurs ou acheteurs) ────────────────────────────
+    async function addToBase(target) {
+      document.getElementById('addBaseMenu').style.display = 'none';
       if (!currentResults.length) return;
+
       const checkedIdx = getCheckedIndices();
       const indices = checkedIdx.length > 0 ? checkedIdx : currentResults.map((_,i) => i);
       const toAdd = indices.map(i => currentResults[i]);
@@ -1372,13 +1396,35 @@
       btn.disabled = true;
       btn.textContent = 'Ajout en cours…';
 
+      const endpoint = target === 'acheteurs' ? '/api/acheteurs' : '/api/vendeurs';
+      const label    = target === 'acheteurs' ? 'base acheteurs' : 'base vendeurs';
+
       let added = 0, duplicates = 0, errors = 0;
       for (const r of toAdd) {
+        let payload;
+        if (target === 'acheteurs') {
+          // Mapper les champs de la recherche vers le schéma acheteurs
+          const nomFull = r.nom_dirigeant || '';
+          const parts   = nomFull.trim().split(/\s+/);
+          const prenom  = parts.length >= 2 ? parts[0] : '';
+          const nom     = parts.length >= 2 ? parts.slice(1).join(' ') : nomFull;
+          payload = {
+            entreprise:       r.nom_entreprise || '',
+            prenom:           prenom,
+            nom:              nom,
+            email:            r.email_dirigeant || '',
+            telephone:        r.mobile_dirigeant || '',
+            secteurs_interet: r.secteur || '',
+            statut:           'prospect',
+          };
+        } else {
+          payload = r;
+        }
         try {
-          const res = await fetch('/api/vendeurs', {
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(r),
+            body: JSON.stringify(payload),
           });
           if (res.status === 409) duplicates++;
           else if (res.ok) added++;
@@ -1387,15 +1433,15 @@
       }
 
       btn.disabled = false;
-      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Ajouter à la base';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Ajouter à la base <svg width="10" height="6" style="margin-left:.1rem" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="currentColor"/></svg>';
 
-      let msg = `${added} entreprise${added !== 1 ? 's' : ''} ajoutée${added !== 1 ? 's' : ''} à la base vendeurs`;
+      let msg = `${added} entreprise${added !== 1 ? 's' : ''} ajoutée${added !== 1 ? 's' : ''} à la ${label}`;
       if (duplicates) msg += ` · ${duplicates} doublon${duplicates !== 1 ? 's' : ''} ignoré${duplicates !== 1 ? 's' : ''}`;
       if (errors) msg += ` · ${errors} erreur${errors !== 1 ? 's' : ''}`;
-      const r = document.getElementById('addBaseResult');
-      r.textContent = msg + '.';
-      r.classList.add('visible');
-      setTimeout(() => r.classList.remove('visible'), 4000);
+      const resultEl = document.getElementById('addBaseResult');
+      resultEl.textContent = msg + '.';
+      resultEl.classList.add('visible');
+      setTimeout(() => resultEl.classList.remove('visible'), 4000);
     }
 
     // ── Export CSV ──────────────────────────────────────────────────────────

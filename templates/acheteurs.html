@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Base Vendeurs — Ciblage M&A</title>
+  <title>Base Acheteurs — Ciblage M&A</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -57,9 +57,9 @@
     main { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
 
     /* ── Toolbar ── */
-    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap; }
     .toolbar-left { display: flex; align-items: center; gap: .75rem; }
-    .toolbar-right { display: flex; align-items: center; gap: .5rem; }
+    .toolbar-right { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 
     .page-title { font-size: 1.125rem; font-weight: 700; color: var(--gray-900); }
     .count-badge { padding: .1875rem .625rem; background: var(--blue-light); color: var(--blue); border-radius: 20px; font-size: .75rem; font-weight: 600; }
@@ -70,6 +70,7 @@
     .btn-outline { background: white; color: var(--gray-700); border-color: var(--gray-200); }
     .btn-outline:hover { border-color: var(--gray-300); color: var(--gray-900); }
     .btn-outline.green:hover { border-color: var(--green); color: var(--green); }
+    .btn-outline.amber:hover { border-color: var(--amber); color: var(--amber); }
 
     /* ── States ── */
     .state-box { display: none; padding: 1rem 1.25rem; border-radius: 10px; margin-bottom: 1rem; align-items: center; gap: .75rem; }
@@ -102,26 +103,21 @@
     tbody tr:hover { background: var(--gray-50); }
     td { padding: .75rem 1rem; vertical-align: top; color: var(--gray-700); }
 
-    .td-company strong { display: block; font-weight: 600; color: var(--gray-900); }
-    .td-company .siren { font-size: .7rem; color: var(--gray-400); }
-    .td-company .sector { font-size: .75rem; color: var(--gray-500); margin-top: .125rem; }
-
-    .td-ca { font-weight: 600; color: var(--gray-900); white-space: nowrap; }
-    .td-rn { font-size: .8125rem; white-space: nowrap; }
-
-    .age-badge { display: inline-flex; align-items: center; padding: .125rem .4rem; background: var(--amber-light); border: 1px solid #fde68a; border-radius: 20px; font-size: .7rem; font-weight: 500; color: var(--amber); margin-top: .25rem; }
+    .td-contact strong { display: block; font-weight: 600; color: var(--gray-900); }
+    .td-contact .titre { font-size: .75rem; color: var(--gray-500); margin-top: .125rem; }
+    .td-contact .entreprise-sub { font-size: .75rem; color: var(--gray-500); }
 
     /* ── Statut select ── */
     .statut-select { padding: .25rem .5rem; border-radius: 20px; border: 1.5px solid; font-size: .75rem; font-weight: 600; font-family: inherit; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; padding-right: 1.25rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .4rem center; }
     .s-prospect  { background-color: var(--gray-100); color: var(--gray-600); border-color: var(--gray-300); }
     .s-contacte  { background-color: var(--blue-light); color: var(--blue); border-color: var(--blue-border); }
     .s-interesse { background-color: var(--amber-light); color: var(--amber); border-color: #fde68a; }
-    .s-mandat    { background-color: var(--green-light); color: var(--green); border-color: #a7f3d0; }
+    .s-signe     { background-color: var(--green-light); color: var(--green); border-color: #a7f3d0; }
 
     /* ── Contact cell ── */
-    .contact-cell { font-size: .75rem; }
-    .contact-cell a { color: var(--blue); text-decoration: none; display: block; }
-    .contact-cell a:hover { text-decoration: underline; }
+    .email-cell { font-size: .75rem; }
+    .email-cell a { color: var(--blue); text-decoration: none; display: block; }
+    .email-cell a:hover { text-decoration: underline; }
     .call-link { display: inline-flex; align-items: center; gap: .25rem; margin-top: .2rem; color: var(--green) !important; font-weight: 500; }
 
     /* ── Notes (editable) ── */
@@ -167,6 +163,7 @@
     .btn-cancel:hover { border-color: var(--gray-300); }
     .btn-submit { padding: .5rem .875rem; border: none; border-radius: 7px; background: var(--blue); color: white; font-size: .8125rem; font-weight: 600; font-family: inherit; cursor: pointer; }
     .btn-submit:hover { background: var(--blue-dark); }
+    .import-hint { font-size: .8rem; color: var(--gray-500); margin-top: .25rem; line-height: 1.4; }
 
     @media (max-width: 700px) {
       .modal-grid { grid-template-columns: 1fr; }
@@ -194,8 +191,8 @@
 
       <nav class="tabs">
         <a href="/" class="tab">Recherche</a>
-        <a href="/vendeurs" class="tab active">Base Vendeurs</a>
-        <a href="/acheteurs" class="tab">Base Acheteurs</a>
+        <a href="/vendeurs" class="tab">Base Vendeurs</a>
+        <a href="/acheteurs" class="tab active">Base Acheteurs</a>
       </nav>
 
       <a href="/logout" class="logout-btn">
@@ -214,7 +211,7 @@
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <span class="page-title">Base Vendeurs</span>
+        <span class="page-title">Base Acheteurs</span>
         <span class="count-badge" id="countBadge" style="display:none"></span>
       </div>
       <div class="toolbar-right">
@@ -226,11 +223,19 @@
           </svg>
           Exporter CSV
         </button>
+        <button class="btn btn-outline amber" onclick="openImportModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Importer entreprises
+        </button>
         <button class="btn btn-primary" onclick="openModal()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          Ajouter
+          Ajouter manuellement
         </button>
       </div>
     </div>
@@ -238,7 +243,7 @@
     <!-- Loading -->
     <div class="state-box state-loading" id="stateLoading">
       <div class="spinner"></div>
-      <span class="loading-text">Chargement de la base vendeurs…</span>
+      <span class="loading-text">Chargement de la base acheteurs…</span>
     </div>
 
     <!-- Error -->
@@ -258,8 +263,8 @@
         <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
         <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
-      <h3>Aucun vendeur dans la base</h3>
-      <p>Ajoutez des entreprises depuis la recherche ou manuellement.</p>
+      <h3>Aucun acheteur dans la base</h3>
+      <p>Ajoutez des contacts manuellement ou importez des entreprises.</p>
     </div>
 
     <!-- Table -->
@@ -267,11 +272,10 @@
       <table>
         <thead>
           <tr>
-            <th>Entreprise</th>
-            <th class="hide-mobile">CA</th>
-            <th>Dirigeant</th>
-            <th>Statut</th>
             <th>Contact</th>
+            <th>Entreprise</th>
+            <th>Statut</th>
+            <th>Email / Téléphone</th>
             <th class="hide-mobile notes-td">Notes</th>
             <th>Actions</th>
           </tr>
@@ -285,43 +289,39 @@
   <!-- Modal ajout manuel -->
   <div class="modal-backdrop" id="modalBackdrop" onclick="closeModalOutside(event)">
     <div class="modal">
-      <h3>Ajouter un vendeur</h3>
+      <h3>Ajouter un acheteur</h3>
       <div class="modal-grid">
-        <div class="field-group full">
-          <label>Nom de l'entreprise *</label>
-          <input type="text" id="m-nom" placeholder="Dupont SAS">
+        <div class="field-group">
+          <label>Prénom</label>
+          <input type="text" id="m-prenom" placeholder="Jean">
         </div>
         <div class="field-group">
-          <label>SIREN</label>
-          <input type="text" id="m-siren" placeholder="123456789">
-        </div>
-        <div class="field-group">
-          <label>Secteur</label>
-          <input type="text" id="m-secteur" placeholder="Plomberie, Bâtiment…">
-        </div>
-        <div class="field-group">
-          <label>CA (€)</label>
-          <input type="number" id="m-ca" placeholder="2000000">
-        </div>
-        <div class="field-group">
-          <label>Résultat net (€)</label>
-          <input type="number" id="m-rn" placeholder="150000">
+          <label>Nom</label>
+          <input type="text" id="m-nom" placeholder="Dupont">
         </div>
         <div class="field-group full">
-          <label>Dirigeant (nom complet)</label>
-          <input type="text" id="m-dirigeant" placeholder="Jean Dupont">
+          <label>Titre / Fonction</label>
+          <input type="text" id="m-titre" placeholder="Directeur M&A, Corporate Development…">
         </div>
-        <div class="field-group">
-          <label>Âge dirigeant</label>
-          <input type="number" id="m-age" placeholder="58" min="18" max="100">
+        <div class="field-group full">
+          <label>Entreprise *</label>
+          <input type="text" id="m-entreprise" placeholder="BNP Paribas, Vinci…">
         </div>
         <div class="field-group">
           <label>Email</label>
-          <input type="email" id="m-email" placeholder="jean@dupont.fr">
+          <input type="email" id="m-email" placeholder="jean.dupont@entreprise.fr">
         </div>
         <div class="field-group">
           <label>Téléphone</label>
           <input type="tel" id="m-tel" placeholder="+33 6 12 34 56 78">
+        </div>
+        <div class="field-group">
+          <label>Secteurs d'intérêt</label>
+          <input type="text" id="m-secteurs" placeholder="Industrie, Services B2B…">
+        </div>
+        <div class="field-group">
+          <label>Taille cibles</label>
+          <input type="text" id="m-taille" placeholder="1–10 M€ CA">
         </div>
         <div class="field-group">
           <label>Statut</label>
@@ -329,12 +329,12 @@
             <option value="prospect">Prospect</option>
             <option value="contacté">Contacté</option>
             <option value="intéressé">Intéressé</option>
-            <option value="mandat signé">Mandat signé</option>
+            <option value="signé">Signé</option>
           </select>
         </div>
         <div class="field-group full">
           <label>Notes</label>
-          <textarea id="m-notes" placeholder="Raison de cession, contexte…"></textarea>
+          <textarea id="m-notes" placeholder="Contexte, mandat, budget…"></textarea>
         </div>
       </div>
       <div class="modal-actions">
@@ -344,8 +344,26 @@
     </div>
   </div>
 
+  <!-- Modal import entreprises -->
+  <div class="modal-backdrop" id="importBackdrop" onclick="closeImportOutside(event)">
+    <div class="modal">
+      <h3>Importer des entreprises</h3>
+      <div class="modal-grid">
+        <div class="field-group full">
+          <label>Noms d'entreprises (un par ligne)</label>
+          <textarea id="import-entreprises" rows="10" placeholder="Vinci SA&#10;BNP Paribas&#10;Schneider Electric&#10;…"></textarea>
+          <p class="import-hint">Chaque entreprise sera ajoutée comme prospect. Vous pourrez ensuite enrichir les contacts individuellement.</p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeImportModal()">Annuler</button>
+        <button class="btn-submit" id="importSubmitBtn" onclick="submitImport()">Importer</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    let vendeurs = [];
+    let acheteurs = [];
 
     // ── Utilitaires ─────────────────────────────────────────────────────────
     function esc(s) {
@@ -357,32 +375,10 @@
       return !s && s !== 0 ? '<span class="empty-cell">—</span>' : esc(String(s));
     }
 
-    function fmtCA(val) {
-      if (!val && val !== 0) return '<span class="empty-cell">—</span>';
-      const n = Number(val);
-      if (n >= 1_000_000) return (n/1_000_000).toLocaleString('fr-FR',{maximumFractionDigits:1})+'&nbsp;M€';
-      if (n >= 1_000)     return (n/1_000).toLocaleString('fr-FR',{maximumFractionDigits:0})+'&nbsp;k€';
-      return n.toLocaleString('fr-FR')+'&nbsp;€';
-    }
-
-    function fmtRN(val) {
-      if (val === '' || val === null || val === undefined) return '';
-      const n = Number(val);
-      if (isNaN(n)) return '';
-      const abs = Math.abs(n);
-      let fmt;
-      if (abs >= 1_000_000) fmt = (abs/1_000_000).toLocaleString('fr-FR',{maximumFractionDigits:1})+'&nbsp;M€';
-      else if (abs >= 1_000) fmt = (abs/1_000).toLocaleString('fr-FR',{maximumFractionDigits:0})+'&nbsp;k€';
-      else fmt = abs.toLocaleString('fr-FR')+'&nbsp;€';
-      const color = n < 0 ? 'var(--red)' : n > 0 ? 'var(--green)' : 'var(--gray-700)';
-      const prefix = n < 0 ? '−' : '';
-      return `<span style="color:${color};font-size:.75rem">${prefix}${fmt}</span>`;
-    }
-
     function statutClass(s) {
-      if (s === 'contacté')    return 's-contacte';
-      if (s === 'intéressé')   return 's-interesse';
-      if (s === 'mandat signé') return 's-mandat';
+      if (s === 'contacté')  return 's-contacte';
+      if (s === 'intéressé') return 's-interesse';
+      if (s === 'signé')     return 's-signe';
       return 's-prospect';
     }
 
@@ -401,13 +397,13 @@
     }
 
     // ── Chargement ──────────────────────────────────────────────────────────
-    async function loadVendeurs() {
+    async function loadAcheteurs() {
       document.getElementById('stateLoading').classList.add('visible');
       try {
-        const res = await fetch('/api/vendeurs');
+        const res = await fetch('/api/acheteurs');
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Erreur serveur');
-        vendeurs = data.vendeurs || [];
+        acheteurs = data.acheteurs || [];
         renderTable();
       } catch(e) {
         showError(e.message);
@@ -418,9 +414,9 @@
 
     // ── Rendu ────────────────────────────────────────────────────────────────
     function renderTable() {
-      const n = vendeurs.length;
+      const n = acheteurs.length;
       const badge = document.getElementById('countBadge');
-      badge.textContent = `${n} cible${n !== 1 ? 's' : ''}`;
+      badge.textContent = `${n} contact${n !== 1 ? 's' : ''}`;
       badge.style.display = n ? '' : 'none';
 
       if (!n) {
@@ -435,59 +431,50 @@
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
 
-      vendeurs.forEach(v => {
-        const id = v.id;
+      acheteurs.forEach(a => {
+        const id = a.id;
 
-        // CA + RN
-        const caHtml = v.ca ? `<div class="td-ca">${fmtCA(v.ca)}</div>${v.resultat_net !== null && v.resultat_net !== undefined && v.resultat_net !== '' ? `<div class="td-rn">${fmtRN(v.resultat_net)}</div>` : ''}` : '<span class="empty-cell">—</span>';
+        // Contact (nom + titre)
+        const nomComplet = [a.prenom, a.nom].filter(Boolean).join(' ');
+        const contactHtml = nomComplet
+          ? `<div class="td-contact"><strong>${esc(nomComplet)}</strong>${a.titre ? `<div class="titre">${esc(a.titre)}</div>` : ''}</div>`
+          : `<span class="empty-cell">—</span>`;
 
-        // Dirigeant
-        const dirHtml = v.nom_dirigeant
-          ? `<div>${esc(v.nom_dirigeant)}</div>${v.age_dirigeant ? `<span class="age-badge">${v.age_dirigeant} ans</span>` : ''}`
+        // Entreprise
+        const entrepriseHtml = a.entreprise
+          ? `<strong>${esc(a.entreprise)}</strong>${a.secteurs_interet ? `<div class="td-contact"><span class="entreprise-sub">${esc(a.secteurs_interet)}</span></div>` : ''}`
           : '<span class="empty-cell">—</span>';
 
-        // Contact
-        let contactHtml = '';
-        if (v.email) contactHtml += `<a href="mailto:${esc(v.email)}">${esc(v.email)}</a>`;
-        if (v.telephone) contactHtml += `<a href="tel:${esc(v.telephone)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(v.telephone)}</a>`;
-        if (!contactHtml) contactHtml = '<span class="empty-cell">—</span>';
-
-        // Pappers link
-        const pappersHtml = v.lien_pappers
-          ? `<a href="${esc(v.lien_pappers)}" target="_blank" rel="noopener" class="action-btn" title="Voir sur Pappers">
-               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-               Pappers
-             </a>` : '';
+        // Email / Tel
+        let emailTelHtml = '';
+        if (a.email) emailTelHtml += `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>`;
+        if (a.telephone) emailTelHtml += `<a href="tel:${esc(a.telephone)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(a.telephone)}</a>`;
+        if (!emailTelHtml) emailTelHtml = '<span class="empty-cell">—</span>';
 
         const tr = document.createElement('tr');
         tr.id = `row-${id}`;
         tr.innerHTML = `
-          <td class="td-company">
-            <strong>${esc(v.nom_entreprise) || '—'}</strong>
-            <div class="siren">${esc(v.siren)}</div>
-            ${v.secteur ? `<div class="sector">${esc(v.secteur)}</div>` : ''}
-          </td>
-          <td class="hide-mobile">${caHtml}</td>
-          <td>${dirHtml}</td>
+          <td class="td-contact">${contactHtml}</td>
+          <td>${entrepriseHtml}</td>
           <td>
-            <select class="statut-select ${statutClass(v.statut)}"
+            <select class="statut-select ${statutClass(a.statut)}"
                     onchange="saveStatut('${id}', this)">
-              <option value="prospect"      ${v.statut==='prospect'      ?'selected':''}>Prospect</option>
-              <option value="contacté"      ${v.statut==='contacté'      ?'selected':''}>Contacté</option>
-              <option value="intéressé"     ${v.statut==='intéressé'     ?'selected':''}>Intéressé</option>
-              <option value="mandat signé"  ${v.statut==='mandat signé'  ?'selected':''}>Mandat signé</option>
+              <option value="prospect"  ${a.statut==='prospect'  ?'selected':''}>Prospect</option>
+              <option value="contacté"  ${a.statut==='contacté'  ?'selected':''}>Contacté</option>
+              <option value="intéressé" ${a.statut==='intéressé' ?'selected':''}>Intéressé</option>
+              <option value="signé"     ${a.statut==='signé'     ?'selected':''}>Signé</option>
             </select>
           </td>
-          <td class="contact-cell" id="contact-${id}">${contactHtml}</td>
+          <td class="email-cell" id="contact-${id}">${emailTelHtml}</td>
           <td class="hide-mobile notes-td">
             <div class="notes-cell"
                  contenteditable="true"
                  data-id="${id}"
-                 data-original="${esc(v.notes || '')}"
+                 data-original="${esc(a.notes || '')}"
                  data-placeholder="Ajouter une note…"
                  onblur="saveNotes(this)"
                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}"
-            >${esc(v.notes || '')}</div>
+            >${esc(a.notes || '')}</div>
           </td>
           <td class="actions-td">
             <div style="display:flex;gap:.375rem;align-items:center;flex-wrap:wrap">
@@ -497,13 +484,12 @@
                   Enrichir
                 </button>
                 <div class="enrich-menu" id="em-${id}">
-                  <button onclick="enrichVendeur('${id}','both')">✉ + 📞 Email + Téléphone</button>
-                  <button onclick="enrichVendeur('${id}','email')">✉ Email uniquement</button>
-                  <button onclick="enrichVendeur('${id}','phone')">📞 Téléphone uniquement</button>
+                  <button onclick="enrichAcheteur('${id}','both')">✉ + 📞 Email + Téléphone</button>
+                  <button onclick="enrichAcheteur('${id}','email')">✉ Email uniquement</button>
+                  <button onclick="enrichAcheteur('${id}','phone')">📞 Téléphone uniquement</button>
                 </div>
               </div>
-              ${pappersHtml}
-              <button class="action-btn danger" onclick="deleteVendeur('${id}', '${esc(v.nom_entreprise)}')">
+              <button class="action-btn danger" onclick="deleteAcheteur('${id}', '${esc(nomComplet || a.entreprise)}')">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
               </button>
             </div>
@@ -512,7 +498,6 @@
         tbody.appendChild(tr);
       });
 
-      // Fermer les menus enrich si on clique ailleurs
       document.addEventListener('click', closeAllEnrichMenus, { once: false });
     }
 
@@ -521,15 +506,14 @@
       const statut = sel.value;
       sel.className = `statut-select ${statutClass(statut)}`;
       try {
-        const res = await fetch(`/api/vendeurs/${id}`, {
+        const res = await fetch(`/api/acheteurs/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ statut }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
-        // Mettre à jour vendeurs local
-        const v = vendeurs.find(x => x.id === id);
-        if (v) v.statut = statut;
+        const a = acheteurs.find(x => x.id === id);
+        if (a) a.statut = statut;
       } catch(e) {
         showError('Erreur sauvegarde statut : ' + e.message);
       }
@@ -542,14 +526,14 @@
       if (notes === el.dataset.original) return;
       el.dataset.original = notes;
       try {
-        const res = await fetch(`/api/vendeurs/${id}`, {
+        const res = await fetch(`/api/acheteurs/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ notes }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
-        const v = vendeurs.find(x => x.id === id);
-        if (v) v.notes = notes;
+        const a = acheteurs.find(x => x.id === id);
+        if (a) a.notes = notes;
       } catch(e) {
         showError('Erreur sauvegarde notes : ' + e.message);
       }
@@ -569,14 +553,14 @@
       if (!isOpen) menu.classList.add('open');
     }
 
-    async function enrichVendeur(id, enrich_type) {
+    async function enrichAcheteur(id, enrich_type) {
       document.getElementById(`em-${id}`).classList.remove('open');
       const btn = document.getElementById(`enrich-btn-${id}`);
       btn.disabled = true;
       btn.innerHTML = '<span class="row-spinner"></span> Enrichissement…';
 
       try {
-        const res = await fetch(`/api/vendeurs/${id}/enrich`, {
+        const res = await fetch(`/api/acheteurs/${id}/enrich`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ enrich_type }),
@@ -584,17 +568,16 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        // Mettre à jour la cellule contact
-        const v = vendeurs.find(x => x.id === id);
-        if (v) {
-          if (data.email)     v.email     = data.email;
-          if (data.telephone) v.telephone = data.telephone;
+        const a = acheteurs.find(x => x.id === id);
+        if (a) {
+          if (data.email)     a.email     = data.email;
+          if (data.telephone) a.telephone = data.telephone;
         }
 
         const contactCell = document.getElementById(`contact-${id}`);
         let html = '';
-        const email = data.email || (v && v.email);
-        const tel   = data.telephone || (v && v.telephone);
+        const email = data.email || (a && a.email);
+        const tel   = data.telephone || (a && a.telephone);
         if (email) html += `<a href="mailto:${esc(email)}">${esc(email)}</a>`;
         if (tel)   html += `<a href="tel:${esc(tel)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(tel)}</a>`;
         if (!html) html = '<span class="empty-cell">—</span>';
@@ -603,7 +586,7 @@
         const found = (email || tel) ? 1 : 0;
         showToast(found
           ? `Contact enrichi (${data.credits_used} crédit${data.credits_used !== 1 ? 's' : ''} consommé${data.credits_used !== 1 ? 's' : ''}).`
-          : 'Aucun contact trouvé pour ce dirigeant.');
+          : 'Aucun contact trouvé.');
       } catch(e) {
         showError('Enrichissement impossible : ' + e.message);
       } finally {
@@ -613,12 +596,12 @@
     }
 
     // ── Suppression ──────────────────────────────────────────────────────────
-    async function deleteVendeur(id, nom) {
-      if (!confirm(`Supprimer "${nom}" de la base vendeurs ?`)) return;
+    async function deleteAcheteur(id, nom) {
+      if (!confirm(`Supprimer "${nom}" de la base acheteurs ?`)) return;
       try {
-        const res = await fetch(`/api/vendeurs/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/acheteurs/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error((await res.json()).error);
-        vendeurs = vendeurs.filter(v => v.id !== id);
+        acheteurs = acheteurs.filter(a => a.id !== id);
         renderTable();
         showToast(`"${nom}" supprimé.`);
       } catch(e) {
@@ -626,14 +609,14 @@
       }
     }
 
-    // ── Modal ajout ──────────────────────────────────────────────────────────
+    // ── Modal ajout manuel ───────────────────────────────────────────────────
     function openModal() {
       document.getElementById('modalBackdrop').classList.add('open');
-      document.getElementById('m-nom').focus();
+      document.getElementById('m-prenom').focus();
     }
     function closeModal() {
       document.getElementById('modalBackdrop').classList.remove('open');
-      ['m-nom','m-siren','m-secteur','m-ca','m-rn','m-dirigeant','m-age','m-email','m-tel','m-notes']
+      ['m-prenom','m-nom','m-titre','m-entreprise','m-email','m-tel','m-secteurs','m-taille','m-notes']
         .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       document.getElementById('m-statut').value = 'prospect';
     }
@@ -642,47 +625,86 @@
     }
 
     async function submitAdd() {
-      const nom = document.getElementById('m-nom').value.trim();
-      if (!nom) { alert('Le nom de l\'entreprise est requis.'); return; }
+      const entreprise = document.getElementById('m-entreprise').value.trim();
+      if (!entreprise) { alert("Le nom de l'entreprise est requis."); return; }
 
       const payload = {
-        nom_entreprise: nom,
-        siren:          document.getElementById('m-siren').value.trim(),
-        secteur:        document.getElementById('m-secteur').value.trim(),
-        ca:             document.getElementById('m-ca').value,
-        resultat_net:   document.getElementById('m-rn').value,
-        nom_dirigeant:  document.getElementById('m-dirigeant').value.trim(),
-        age_dirigeant:  document.getElementById('m-age').value,
-        email:          document.getElementById('m-email').value.trim(),
-        telephone:      document.getElementById('m-tel').value.trim(),
-        statut:         document.getElementById('m-statut').value,
-        notes:          document.getElementById('m-notes').value.trim(),
+        prenom:           document.getElementById('m-prenom').value.trim(),
+        nom:              document.getElementById('m-nom').value.trim(),
+        titre:            document.getElementById('m-titre').value.trim(),
+        entreprise:       entreprise,
+        email:            document.getElementById('m-email').value.trim(),
+        telephone:        document.getElementById('m-tel').value.trim(),
+        secteurs_interet: document.getElementById('m-secteurs').value.trim(),
+        taille_cibles:    document.getElementById('m-taille').value.trim(),
+        statut:           document.getElementById('m-statut').value,
+        notes:            document.getElementById('m-notes').value.trim(),
       };
 
       try {
-        const res = await fetch('/api/vendeurs', {
+        const res = await fetch('/api/acheteurs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         const data = await res.json();
-        if (res.status === 409) { showToast(data.error, 'error'); closeModal(); return; }
         if (!res.ok) throw new Error(data.error);
         closeModal();
-        await loadVendeurs();
-        showToast(`"${nom}" ajouté à la base vendeurs.`);
+        await loadAcheteurs();
+        showToast(`"${entreprise}" ajouté à la base acheteurs.`);
       } catch(e) {
         showError('Erreur ajout : ' + e.message);
       }
     }
 
+    // ── Modal import ─────────────────────────────────────────────────────────
+    function openImportModal() {
+      document.getElementById('importBackdrop').classList.add('open');
+      document.getElementById('import-entreprises').focus();
+    }
+    function closeImportModal() {
+      document.getElementById('importBackdrop').classList.remove('open');
+      document.getElementById('import-entreprises').value = '';
+    }
+    function closeImportOutside(e) {
+      if (e.target === document.getElementById('importBackdrop')) closeImportModal();
+    }
+
+    async function submitImport() {
+      const raw = document.getElementById('import-entreprises').value;
+      const entreprises = raw.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!entreprises.length) { alert('Entrez au moins un nom d\'entreprise.'); return; }
+
+      const btn = document.getElementById('importSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Import en cours…';
+
+      try {
+        const res = await fetch('/api/acheteurs/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entreprises }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        closeImportModal();
+        await loadAcheteurs();
+        showToast(`${data.inserted} entreprise${data.inserted !== 1 ? 's' : ''} importée${data.inserted !== 1 ? 's' : ''} comme prospect${data.inserted !== 1 ? 's' : ''}.`);
+      } catch(e) {
+        showError('Erreur import : ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Importer';
+      }
+    }
+
     // ── Export CSV ───────────────────────────────────────────────────────────
     function exportCSV() {
-      window.location.href = '/api/vendeurs/export';
+      window.location.href = '/api/acheteurs/export';
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────
-    loadVendeurs();
+    loadAcheteurs();
   </script>
 </body>
 </html>
