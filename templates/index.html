@@ -1238,6 +1238,7 @@
         }
 
         currentResults = data.results || [];
+        _saveSearchState();
 
         if (currentResults.length === 0) {
           show('emptyState');
@@ -1534,6 +1535,62 @@
 
     // Pré-charger la liste NAF en arrière-plan
     _loadNaf();
+
+    // ── Persistance sessionStorage ───────────────────────────────────────────
+    const SS_KEY = 'recherche_state';
+
+    function _saveSearchState() {
+      const form = document.getElementById('searchForm');
+      const fields = ['nom_entreprise','secteur','region','departement','ca_min','ca_max',
+                      'age_min_dirigeant','nom_dirigeant','prenom_dirigeant','max_resultats',
+                      'forme_juridique','effectif_min','effectif_max','resultat_net_min',
+                      'resultat_net_max','date_creation_min','ville','statut_rcs'];
+      const formState = {};
+      fields.forEach(name => {
+        const el = form[name];
+        if (el) formState[name] = el.value;
+      });
+      const enActEl = form['en_activite'];
+      if (enActEl) formState['en_activite'] = enActEl.checked;
+
+      try {
+        sessionStorage.setItem(SS_KEY, JSON.stringify({
+          results: currentResults,
+          form: formState,
+        }));
+      } catch(e) {}
+    }
+
+    function _restoreSearchState() {
+      try {
+        const raw = sessionStorage.getItem(SS_KEY);
+        if (!raw) return;
+        const state = JSON.parse(raw);
+        if (!state.results || !state.results.length) return;
+
+        // Restaurer le formulaire
+        const form = document.getElementById('searchForm');
+        if (state.form) {
+          Object.entries(state.form).forEach(([name, val]) => {
+            const el = form[name];
+            if (!el) return;
+            if (name === 'en_activite') el.checked = val;
+            else el.value = val;
+          });
+        }
+
+        // Restaurer les résultats
+        currentResults = state.results;
+        const n = currentResults.length;
+        document.getElementById('resultsCount').innerHTML =
+          `<strong>${n}</strong> entreprise${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}`;
+        show('resultsHeader');
+        renderResults(currentResults);
+        show('tableWrap');
+      } catch(e) {}
+    }
+
+    _restoreSearchState();
   </script>
 </body>
 </html>
