@@ -210,6 +210,54 @@
       white-space: nowrap;
     }
 
+    /* ── NAF autocomplete ── */
+    .naf-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1.5px solid var(--blue-border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 6px 16px rgb(0 0 0 / .1);
+      z-index: 200;
+      overflow: hidden;
+    }
+
+    .naf-dropdown.open { display: block; }
+
+    .naf-item {
+      display: flex;
+      align-items: baseline;
+      gap: .625rem;
+      padding: .5rem .75rem;
+      cursor: pointer;
+      transition: background .1s;
+      border-top: 1px solid var(--gray-100);
+    }
+
+    .naf-item:first-child { border-top: none; }
+    .naf-item:hover, .naf-item.active { background: var(--blue-light); }
+
+    .naf-code {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--blue);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      min-width: 52px;
+    }
+
+    .naf-label {
+      font-size: .8125rem;
+      color: var(--gray-700);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* ── Advanced filters (details/summary) ── */
     .advanced-filters {
       border: 1px solid var(--gray-200);
@@ -716,9 +764,11 @@
             <input type="text" id="f-nom" name="nom_entreprise" placeholder="Dupont SAS, Plomberie…">
           </div>
 
-          <div class="field-group">
+          <div class="field-group" style="position:relative">
             <label for="f-secteur">Secteur d'activité</label>
-            <input type="text" id="f-secteur" name="secteur" placeholder="plomberie ou 4322A">
+            <input type="text" id="f-secteur" name="secteur" placeholder="plomberie ou 4322A"
+                   oninput="onNafInput(event)" onblur="scheduleCloseNaf()" onkeydown="onNafKeydown(event)" autocomplete="off">
+            <div id="naf-dropdown" class="naf-dropdown"></div>
           </div>
 
           <div class="field-group">
@@ -1368,6 +1418,122 @@
         alert("Erreur lors de l'export CSV.");
       }
     }
+
+    // ── NAF Autocomplete ────────────────────────────────────────────────────
+    let _nafData = null;
+    let _nafLoadPromise = null;
+    let _nafDebounce = null;
+    let _nafActive = -1; // index de l'item survolé au clavier
+
+    function _loadNaf() {
+      if (_nafData) return Promise.resolve(_nafData);
+      if (_nafLoadPromise) return _nafLoadPromise;
+      _nafLoadPromise = fetch('/static/naf.json')
+        .then(r => r.json())
+        .then(d => { _nafData = d; return d; })
+        .catch(() => { _nafData = []; return []; });
+      return _nafLoadPromise;
+    }
+
+    function _norm(s) {
+      return s.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, ' ').trim();
+    }
+
+    function _scoreNaf(entry, words) {
+      const c = _norm(entry.code);
+      const l = _norm(entry.label);
+      // Code exact → priorité max
+      if (words.length === 1 && c === words[0]) return 100;
+      if (words.length === 1 && c.startsWith(words[0])) return 90;
+      // Tous les mots trouvés dans le libellé
+      const hits = words.filter(w => l.includes(w) || c.includes(w));
+      if (hits.length === words.length) {
+        // Bonus si le libellé commence par le premier mot
+        return l.startsWith(words[0]) ? 75 : 65;
+      }
+      if (hits.length > 0) return 30 + hits.length * 10;
+      return 0;
+    }
+
+    async function onNafInput(e) {
+      clearTimeout(_nafDebounce);
+      const val = e.target.value.trim();
+      if (val.length < 2) { closeNafDropdown(); return; }
+      _nafDebounce = setTimeout(() => _showNafSuggestions(val), 180);
+    }
+
+    async function _showNafSuggestions(query) {
+      const data = await _loadNaf();
+      const words = _norm(query).split(/\s+/).filter(w => w.length >= 2);
+      if (!words.length) { closeNafDropdown(); return; }
+
+      const results = data
+        .map(entry => ({ entry, score: _scoreNaf(entry, words) }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+      const dd = document.getElementById('naf-dropdown');
+      if (!results.length) { dd.classList.remove('open'); return; }
+
+      _nafActive = -1;
+      dd.innerHTML = results.map(({ entry }, i) =>
+        `<div class="naf-item" data-idx="${i}" data-code="${entry.code}"
+              onmousedown="selectNaf('${entry.code}')">
+          <span class="naf-code">${entry.code}</span>
+          <span class="naf-label" title="${entry.label}">${entry.label}</span>
+        </div>`
+      ).join('');
+      dd.classList.add('open');
+    }
+
+    function selectNaf(code) {
+      document.getElementById('f-secteur').value = code;
+      closeNafDropdown();
+    }
+
+    function closeNafDropdown() {
+      const dd = document.getElementById('naf-dropdown');
+      dd.classList.remove('open');
+      _nafActive = -1;
+    }
+
+    function scheduleCloseNaf() {
+      // Délai pour laisser onmousedown se déclencher avant le blur
+      setTimeout(closeNafDropdown, 200);
+    }
+
+    function onNafKeydown(e) {
+      const dd = document.getElementById('naf-dropdown');
+      if (!dd.classList.contains('open')) return;
+      const items = dd.querySelectorAll('.naf-item');
+      if (!items.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _nafActive = Math.min(_nafActive + 1, items.length - 1);
+        _updateNafActive(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _nafActive = Math.max(_nafActive - 1, -1);
+        _updateNafActive(items);
+      } else if (e.key === 'Enter' && _nafActive >= 0) {
+        e.preventDefault();
+        selectNaf(items[_nafActive].dataset.code);
+      } else if (e.key === 'Escape') {
+        closeNafDropdown();
+      }
+    }
+
+    function _updateNafActive(items) {
+      items.forEach((el, i) => el.classList.toggle('active', i === _nafActive));
+      if (_nafActive >= 0) items[_nafActive].scrollIntoView({ block: 'nearest' });
+    }
+
+    // Pré-charger la liste NAF en arrière-plan
+    _loadNaf();
   </script>
 </body>
 </html>
