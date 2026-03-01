@@ -1,109 +1,107 @@
-# Recherche Entreprises Françaises à Racheter
+# Deal Sourcing Platform — CRM M&A France
 
-## Description
+## Vision produit
+Plateforme de deal sourcing M&A permettant de trouver, enrichir et gérer
+des cibles de rachat (vendeurs) et des acheteurs potentiels.
 
-Outil en ligne de commande Python qui permet d'identifier des entreprises françaises potentiellement à racheter, en combinant les données financières de l'API Pappers avec l'enrichissement des contacts dirigeants via Fullenrich.
+## Utilisateurs
+2-3 professionnels M&A (banquiers d'affaires, avocats)
 
-## Fonctionnement
+## Fonctionnalités cibles
 
-1. **Saisie des critères** : l'utilisateur entre en ligne de commande les filtres de recherche
-2. **Recherche Pappers** : interrogation de l'API Pappers pour trouver les entreprises correspondantes
-3. **Collecte des données** : pour chaque entreprise, récupération du nom, SIREN, CA, effectif, adresse, site web, nom et âge du dirigeant
-4. **Enrichissement Fullenrich** : récupération de l'email et du mobile de chaque dirigeant
-5. **Export CSV** : toutes les données sont exportées dans un fichier CSV horodaté
+### Onglet Recherche Vendeurs
+- Recherche d'entreprises françaises à racheter via API Pappers
+- Filtres : secteur, région, CA min/max, résultat net min/max, âge dirigeant,
+  nom/prénom dirigeant, nom entreprise, département, forme juridique, effectif min/max
+- Sélection des résultats → ajout dans la base Vendeurs
 
-## Critères de recherche disponibles
+### Onglet Recherche Acheteurs
+- Recherche de contacts par entreprise + fonction via Fullenrich Search API
+- Ex: "M&A Director chez Cegid"
+- Sélection des résultats → ajout dans la base Acheteurs
 
-| Critère | Description | Exemple |
-|---|---|---|
-| `--secteur` | Secteur d'activité (mot-clé ou code NAF) | `plomberie` ou `4322A` |
-| `--region` | Région française | `Île-de-France` |
-| `--ca-min` | Chiffre d'affaires minimum (en €) | `2000000` |
-| `--ca-max` | Chiffre d'affaires maximum (en €) | `6000000` |
-| `--age-min-dirigeant` | Âge minimum du dirigeant (en années) | `55` |
-| `--max-resultats` | Nombre maximum de résultats (défaut: 100) | `50` |
-| `--output` | Nom du fichier CSV de sortie | `resultats.csv` |
+### Onglet Base Vendeurs
+- CRM des cibles à céder
+- Fiche : nom entreprise, SIREN, CA, résultat net, secteur, dirigeant, âge, email,
+  téléphone, site web, lien Pappers, raison de cession, notes, statut
+- Statuts : prospect → contacté → intéressé → mandat signé
+- Enrichissement email + mobile via Fullenrich Enrich API (sélection par ligne)
+- Choix du type d'enrichissement : email / téléphone / les deux
+- Bouton appel mobile (tel://)
+- Export CSV
 
-## Colonnes du CSV exporté
+### Onglet Base Acheteurs
+- CRM des acheteurs potentiels
+- Fiche : nom, prénom, titre, entreprise, email, téléphone,
+  secteurs d'intérêt, taille de cibles, notes, statut
+- Statuts : prospect → contacté → intéressé → signé
+- Bouton appel mobile (tel://)
+- Export CSV
 
-- `nom_entreprise`
-- `siren`
-- `chiffre_affaires`
-- `effectif`
-- `adresse`
-- `site_web`
-- `nom_dirigeant`
-- `age_dirigeant`
-- `email_dirigeant`
-- `mobile_dirigeant`
+## Stack technique
+- Backend : Flask (Python)
+- Base de données : Supabase (PostgreSQL)
+- APIs : Pappers, Fullenrich (Search + Enrich)
+- Déploiement : Railway
+- Auth : login par mot de passe simple
 
-## Installation
+## Design
+Sobre, professionnel, orienté desktop et mobile
 
-```bash
-pip install -r requirements.txt
-```
+---
 
-## Utilisation
+## État actuel (v1)
 
-```bash
-python recherche_entreprises.py \
-  --secteur "plomberie" \
-  --region "Île-de-France" \
-  --ca-min 2000000 \
-  --ca-max 6000000 \
-  --age-min-dirigeant 55
-```
-
-### Autres exemples
-
-```bash
-# Recherche par code NAF
-python recherche_entreprises.py --secteur "4322A" --region "Bretagne" --ca-min 500000
-
-# Limiter le nombre de résultats et choisir le fichier de sortie
-python recherche_entreprises.py --secteur "boulangerie" --max-resultats 50 --output boulangeries.csv
-
-# Sans filtre de région
-python recherche_entreprises.py --secteur "menuiserie" --ca-min 1000000 --ca-max 5000000 --age-min-dirigeant 60
-```
+L'outil existant implémente la partie **Recherche Vendeurs** :
+- Interface web Flask avec login par mot de passe
+- Formulaire de recherche (filtres de base + filtres avancés)
+- Résultats en tableau avec sélection par checkbox
+- Enrichissement Fullenrich avec choix email/téléphone/les deux
+- Export CSV
+- Déployé sur Railway : https://web-production-31c6.up.railway.app
 
 ## APIs utilisées
 
 ### Pappers API
 - **Documentation** : https://www.pappers.fr/api/documentation
 - **Base URL** : `https://api.pappers.fr/v2`
-- **Endpoints utilisés** :
-  - `GET /entreprises` — recherche d'entreprises avec filtres
-  - `GET /entreprise` — détail d'une entreprise (SIREN)
+- **Endpoints** :
+  - `GET /recherche` — recherche avec filtres (denomination, nom_dirigeant,
+    prenom_dirigeant, region, code_naf, chiffre_affaires_min/max, age_dirigeant_min,
+    departement, categorie_juridique, date_creation_min, statut_rcs, entreprise_cessee)
+  - `GET /entreprise` — détail entreprise (SIREN) → finances, representants
+- **Notes** :
+  - Région : codes INSEE numériques (ex: "11" pour Île-de-France)
+  - Dirigeants dans `/entreprise` : champ `representants` (pas `dirigeants`)
+  - Résultat net : `finances[0].resultat`
 
-### Fullenrich API
-- **Documentation** : https://fullenrich.com
-- **Base URL** : `https://api.fullenrich.com`
-- **Endpoint utilisé** :
-  - `POST /v1/enrich` — enrichissement d'un contact (nom + entreprise → email + mobile)
+### Fullenrich API v2
+- **Base URL** : `https://app.fullenrich.com/api/v2`
+- **Endpoints** :
+  - `GET /account/credits` → `{balance: N}`
+  - `POST /contact/enrich/bulk` → `{enrichment_id: "uuid"}`
+  - `GET /contact/enrich/bulk/{id}` → `{status, data, cost}`
+- **enrich_fields** : `["contact.emails"]`, `["contact.phones"]`, ou les deux
+- **Statuts polling** : CREATED, IN_PROGRESS, FINISHED, CANCELED,
+  CREDITS_INSUFFICIENT, RATE_LIMIT
+
+## Clés API (Railway env vars)
+- `PAPPERS_API_KEY` — lue via `_pappers_key()` (PAPPERS_TOKEN || PAPPERS_API_KEY)
+- `FULLENRICH_API_KEY` — lue via `_fullenrich_key()`
+- `APP_PASSWORD` — mot de passe login
+- `SECRET_KEY` — clé Flask sessions
 
 ## Structure du projet
-
 ```
 recherche-entreprises/
-├── CLAUDE.md                  # Ce fichier
-├── requirements.txt           # Dépendances Python
-├── recherche_entreprises.py   # Script principal
-└── resultats/                 # Dossier de sortie des CSV (créé automatiquement)
+├── app.py                     # Flask : routes, helpers
+├── recherche_entreprises.py   # Core : search_pappers, extract_company_info, Fullenrich
+├── templates/
+│   ├── login.html
+│   └── index.html             # UI complète (formulaire + tableau + enrichissement)
+├── requirements.txt           # requests, flask, gunicorn, python-dotenv
+├── Procfile
+├── railway.toml
+├── .env                       # Local (gitignored)
+└── CLAUDE.md
 ```
-
-## Clés API
-
-Les clés API sont définies directement dans le script. Pour les modifier, éditer les constantes en haut de `recherche_entreprises.py` :
-
-```python
-PAPPERS_API_KEY = "..."
-FULLENRICH_API_KEY = "..."
-```
-
-## Notes
-
-- L'API Pappers retourne les données financières les plus récentes disponibles au registre
-- Fullenrich peut ne pas trouver de contact pour tous les dirigeants ; les champs seront vides dans ce cas
-- Le script respecte les rate limits des APIs avec des délais entre les requêtes
-- Les résultats sont paginés côté Pappers (100 entreprises par page maximum)
