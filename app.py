@@ -31,6 +31,8 @@ from flask import (
     url_for,
 )
 
+from supabase import create_client as _mk_supabase
+
 from recherche_entreprises import (
     FULLENRICH_BASE_URL,
     FULLENRICH_POLL_INTERVAL,
@@ -416,6 +418,218 @@ def _do_fullenrich_enrich(contacts: list[dict], enrich_type: str = "both") -> di
             raise ValueError(f"Enrichissement interrompu : {status}")
 
     raise TimeoutError("Timeout : résultats Fullenrich non reçus.")
+
+
+# ---------------------------------------------------------------------------
+# Supabase
+# ---------------------------------------------------------------------------
+
+_supa = None
+
+
+def _supabase():
+    global _supa
+    if _supa is None:
+        url = os.environ.get("SUPABASE_URL", "")
+        key = os.environ.get("SUPABASE_KEY", "")
+        if url and key:
+            _supa = _mk_supabase(url, key)
+    return _supa
+
+
+# ---------------------------------------------------------------------------
+# Page Vendeurs
+# ---------------------------------------------------------------------------
+
+
+@app.route("/vendeurs")
+@login_required
+def vendeurs_page():
+    return render_template("vendeurs.html")
+
+
+# ---------------------------------------------------------------------------
+# API — Vendeurs CRUD
+# ---------------------------------------------------------------------------
+
+VENDEUR_CSV_FIELDS = [
+    "nom_entreprise", "siren", "ca", "resultat_net", "secteur",
+    "adresse", "site_web", "nom_dirigeant", "age_dirigeant",
+    "email", "telephone", "statut", "raison_cession", "notes",
+    "lien_pappers", "created_at",
+]
+
+
+@app.route("/api/vendeurs", methods=["GET"])
+@login_required
+def api_vendeurs_list():
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+    try:
+        res = supa.table("vendeurs").select("*").order("created_at", desc=True).execute()
+        return jsonify({"vendeurs": res.data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/vendeurs/export", methods=["GET"])
+@login_required
+def api_vendeurs_export():
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+    try:
+        res = supa.table("vendeurs").select("*").order("created_at", desc=True).execute()
+        vendeurs = res.data
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output, fieldnames=VENDEUR_CSV_FIELDS, delimiter=";", extrasaction="ignore"
+    )
+    writer.writeheader()
+    writer.writerows(vendeurs)
+    csv_bytes = ("\ufeff" + output.getvalue()).encode("utf-8")
+    response = make_response(csv_bytes)
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=vendeurs_{int(time.time())}.csv"
+    )
+    return response
+
+
+@app.route("/api/vendeurs", methods=["POST"])
+@login_required
+def api_vendeurs_create():
+    data = request.get_json(force=True)
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    row = {
+        "nom_entreprise": data.get("nom_entreprise") or "",
+        "siren":          data.get("siren") or "",
+        "ca":             _int(data.get("ca") or data.get("chiffre_affaires")),
+        "resultat_net":   _int(data.get("resultat_net")),
+        "secteur":        data.get("secteur") or "",
+        "adresse":        data.get("adresse") or "",
+        "site_web":       data.get("site_web") or "",
+        "lien_pappers":   data.get("lien_pappers") or data.get("pappers_url") or "",
+        "nom_dirigeant":  data.get("nom_dirigeant") or "",
+        "age_dirigeant":  _int(data.get("age_dirigeant")),
+        "email":          data.get("email") or data.get("email_dirigeant") or "",
+        "telephone":      data.get("telephone") or data.get("mobile_dirigeant") or "",
+        "statut":         data.get("statut") or "prospect",
+        "raison_cession": data.get("raison_cession") or "",
+        "notes":          data.get("notes") or "",
+    }
+    row = {k: v for k, v in row.items() if v is not None and v != ""}
+
+    try:
+        siren = row.get("siren")
+        if siren:
+            existing = supa.table("vendeurs").select("id").eq("siren", siren).execute()
+            if existing.data:
+                return jsonify({
+                    "error": f"SIREN {siren} déjà dans la base.",
+                    "duplicate": True,
+                }), 409
+        res = supa.table("vendeurs").insert(row).execute()
+        return jsonify({"vendeur": res.data[0] if res.data else {}}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/vendeurs/<vid>", methods=["PATCH"])
+@login_required
+def api_vendeurs_update(vid):
+    data = request.get_json(force=True)
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    allowed = {
+        "statut", "notes", "email", "telephone",
+        "raison_cession", "nom_entreprise", "ca", "secteur",
+    }
+    update = {k: v for k, v in data.items() if k in allowed}
+    if not update:
+        return jsonify({"error": "Aucun champ modifiable fourni."}), 400
+
+    try:
+        res = supa.table("vendeurs").update(update).eq("id", vid).execute()
+        return jsonify({"vendeur": res.data[0] if res.data else {}})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/vendeurs/<vid>", methods=["DELETE"])
+@login_required
+def api_vendeurs_delete(vid):
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+    try:
+        supa.table("vendeurs").delete().eq("id", vid).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/vendeurs/<vid>/enrich", methods=["POST"])
+@login_required
+def api_vendeurs_enrich(vid):
+    data = request.get_json(force=True)
+    enrich_type = data.get("enrich_type", "both")
+    if enrich_type not in ("both", "email", "phone"):
+        enrich_type = "both"
+
+    supa = _supabase()
+    if not supa:
+        return jsonify({"error": "Supabase non configuré"}), 500
+
+    try:
+        res = supa.table("vendeurs").select("*").eq("id", vid).single().execute()
+        vendeur = res.data
+    except Exception as e:
+        return jsonify({"error": f"Vendeur non trouvé : {e}"}), 404
+
+    nom_full = (vendeur.get("nom_dirigeant") or "").strip()
+    parts = nom_full.split()
+    prenom = parts[0] if len(parts) >= 2 else ""
+    nom    = " ".join(parts[1:]) if len(parts) >= 2 else nom_full
+
+    contacts = [{
+        "prenom":       prenom,
+        "nom":          nom,
+        "domain":       vendeur.get("site_web") or "",
+        "company_name": vendeur.get("nom_entreprise") or "",
+    }]
+
+    try:
+        result = _do_fullenrich_enrich(contacts, enrich_type)
+    except (ValueError, TimeoutError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+    enriched = result.get("enriched", [{}])
+    e0 = enriched[0] if enriched else {}
+    update = {}
+    if e0.get("email"):
+        update["email"] = e0["email"]
+    if e0.get("mobile"):
+        update["telephone"] = e0["mobile"]
+    if update:
+        supa.table("vendeurs").update(update).eq("id", vid).execute()
+
+    return jsonify({
+        "email":        update.get("email", ""),
+        "telephone":    update.get("telephone", ""),
+        "credits_used": result.get("credits_used", 0),
+    })
 
 
 # ---------------------------------------------------------------------------

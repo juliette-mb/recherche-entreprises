@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base Vendeurs — Ciblage M&A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #2563eb;
+      --blue-dark:   #1d4ed8;
+      --blue-light:  #eff6ff;
+      --blue-border: #bfdbfe;
+      --gray-50:     #f8fafc;
+      --gray-100:    #f1f5f9;
+      --gray-200:    #e2e8f0;
+      --gray-300:    #cbd5e1;
+      --gray-400:    #94a3b8;
+      --gray-500:    #64748b;
+      --gray-600:    #475569;
+      --gray-700:    #334155;
+      --gray-900:    #0f172a;
+      --green:       #059669;
+      --green-light: #ecfdf5;
+      --red:         #dc2626;
+      --red-light:   #fef2f2;
+      --amber:       #d97706;
+      --amber-light: #fffbeb;
+    }
+
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: white; border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; z-index: 20; }
+    .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+
+    .logo { display: flex; align-items: center; gap: .625rem; text-decoration: none; flex-shrink: 0; }
+    .logo-icon { width: 34px; height: 34px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .logo-icon svg { color: white; }
+    .logo-text { font-size: .9375rem; font-weight: 700; color: var(--gray-900); letter-spacing: -.02em; }
+    .logo-sub { font-size: .75rem; color: var(--gray-500); font-weight: 400; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: none; }
+    .tab { padding: 0 1rem; height: 60px; display: flex; align-items: center; font-size: .875rem; font-weight: 500; color: var(--gray-500); text-decoration: none; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+    .tab:hover { color: var(--gray-700); }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+    .logout-btn { display: flex; align-items: center; gap: .375rem; padding: .375rem .75rem; border: 1.5px solid var(--gray-200); border-radius: 7px; background: white; color: var(--gray-500); font-size: .8125rem; font-family: inherit; font-weight: 500; cursor: pointer; text-decoration: none; transition: all .15s; flex-shrink: 0; }
+    .logout-btn:hover { border-color: var(--gray-300); color: var(--gray-700); }
+
+    /* ── Main ── */
+    main { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+
+    /* ── Toolbar ── */
+    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; }
+    .toolbar-left { display: flex; align-items: center; gap: .75rem; }
+    .toolbar-right { display: flex; align-items: center; gap: .5rem; }
+
+    .page-title { font-size: 1.125rem; font-weight: 700; color: var(--gray-900); }
+    .count-badge { padding: .1875rem .625rem; background: var(--blue-light); color: var(--blue); border-radius: 20px; font-size: .75rem; font-weight: 600; }
+
+    .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .875rem; border-radius: 8px; font-size: .8125rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all .15s; border: 1.5px solid; white-space: nowrap; }
+    .btn-primary { background: var(--blue); color: white; border-color: var(--blue); }
+    .btn-primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+    .btn-outline { background: white; color: var(--gray-700); border-color: var(--gray-200); }
+    .btn-outline:hover { border-color: var(--gray-300); color: var(--gray-900); }
+    .btn-outline.green:hover { border-color: var(--green); color: var(--green); }
+
+    /* ── States ── */
+    .state-box { display: none; padding: 1rem 1.25rem; border-radius: 10px; margin-bottom: 1rem; align-items: center; gap: .75rem; }
+    .state-box.visible { display: flex; }
+    .state-loading { background: var(--blue-light); border: 1px solid var(--blue-border); }
+    .state-error { background: var(--red-light); border: 1px solid #fecaca; color: var(--red); font-size: .875rem; }
+    .spinner { width: 18px; height: 18px; border: 2.5px solid var(--blue-border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: .875rem; color: var(--blue-dark); }
+
+    .toast { display: none; padding: .625rem 1rem; border-radius: 8px; font-size: .875rem; font-weight: 500; margin-bottom: 1rem; }
+    .toast.visible { display: block; }
+    .toast-success { background: var(--green-light); border: 1px solid #a7f3d0; color: var(--green); }
+    .toast-error { background: var(--red-light); border: 1px solid #fecaca; color: var(--red); }
+
+    /* ── Empty ── */
+    .empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; text-align: center; background: white; border: 1px solid var(--gray-200); border-radius: 12px; }
+    .empty-state.visible { display: flex; }
+    .empty-state svg { color: var(--gray-300); margin-bottom: 1rem; }
+    .empty-state h3 { font-size: 1rem; color: var(--gray-700); margin-bottom: .375rem; }
+    .empty-state p { font-size: .875rem; color: var(--gray-400); }
+
+    /* ── Table ── */
+    .table-wrap { background: white; border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgb(0 0 0 / .04); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .8125rem; min-width: 900px; }
+    thead { background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+    th { padding: .75rem 1rem; text-align: left; font-size: .6875rem; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--gray-100); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--gray-50); }
+    td { padding: .75rem 1rem; vertical-align: top; color: var(--gray-700); }
+
+    .td-company strong { display: block; font-weight: 600; color: var(--gray-900); }
+    .td-company .siren { font-size: .7rem; color: var(--gray-400); }
+    .td-company .sector { font-size: .75rem; color: var(--gray-500); margin-top: .125rem; }
+
+    .td-ca { font-weight: 600; color: var(--gray-900); white-space: nowrap; }
+    .td-rn { font-size: .8125rem; white-space: nowrap; }
+
+    .age-badge { display: inline-flex; align-items: center; padding: .125rem .4rem; background: var(--amber-light); border: 1px solid #fde68a; border-radius: 20px; font-size: .7rem; font-weight: 500; color: var(--amber); margin-top: .25rem; }
+
+    /* ── Statut select ── */
+    .statut-select { padding: .25rem .5rem; border-radius: 20px; border: 1.5px solid; font-size: .75rem; font-weight: 600; font-family: inherit; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; padding-right: 1.25rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .4rem center; }
+    .s-prospect  { background-color: var(--gray-100); color: var(--gray-600); border-color: var(--gray-300); }
+    .s-contacte  { background-color: var(--blue-light); color: var(--blue); border-color: var(--blue-border); }
+    .s-interesse { background-color: var(--amber-light); color: var(--amber); border-color: #fde68a; }
+    .s-mandat    { background-color: var(--green-light); color: var(--green); border-color: #a7f3d0; }
+
+    /* ── Contact cell ── */
+    .contact-cell { font-size: .75rem; }
+    .contact-cell a { color: var(--blue); text-decoration: none; display: block; }
+    .contact-cell a:hover { text-decoration: underline; }
+    .call-link { display: inline-flex; align-items: center; gap: .25rem; margin-top: .2rem; color: var(--green) !important; font-weight: 500; }
+
+    /* ── Notes (editable) ── */
+    .notes-td { min-width: 140px; max-width: 200px; }
+    .notes-cell { font-size: .8125rem; color: var(--gray-600); min-height: 1.5rem; outline: none; border-radius: 4px; padding: .125rem .25rem; margin: -.125rem -.25rem; cursor: text; }
+    .notes-cell:focus { background: var(--blue-light); outline: 2px solid var(--blue-border); color: var(--gray-900); }
+    .notes-cell:empty::before { content: attr(data-placeholder); color: var(--gray-300); font-style: italic; }
+
+    /* ── Actions ── */
+    .actions-td { white-space: nowrap; }
+    .action-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .3125rem .625rem; border: 1.5px solid var(--gray-200); border-radius: 6px; background: white; font-size: .75rem; font-weight: 500; font-family: inherit; color: var(--gray-600); cursor: pointer; transition: all .15s; text-decoration: none; }
+    .action-btn:hover { border-color: var(--gray-300); color: var(--gray-900); }
+    .action-btn.enrich:hover { border-color: var(--blue); color: var(--blue); }
+    .action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+    .action-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Enrich dropdown ── */
+    .enrich-wrap { position: relative; display: inline-block; }
+    .enrich-menu { position: absolute; right: 0; top: calc(100% + 4px); background: white; border: 1.5px solid var(--gray-200); border-radius: 8px; box-shadow: 0 4px 12px rgb(0 0 0 / .1); z-index: 50; min-width: 180px; overflow: hidden; display: none; }
+    .enrich-menu.open { display: block; }
+    .enrich-menu button { display: block; width: 100%; padding: .625rem .875rem; background: none; border: none; font-size: .8125rem; font-family: inherit; color: var(--gray-700); text-align: left; cursor: pointer; transition: background .1s; }
+    .enrich-menu button:hover { background: var(--gray-50); }
+
+    .empty-cell { color: var(--gray-300); font-style: italic; }
+
+    /* ── Row loading (enrich) ── */
+    .row-spinner { width: 14px; height: 14px; border: 2px solid var(--blue-border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+
+    /* ── Modal ── */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgb(0 0 0 / .4); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: white; border-radius: 12px; padding: 1.75rem; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgb(0 0 0 / .2); }
+    .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; margin-bottom: 1.25rem; }
+    .modal-grid .full { grid-column: 1 / -1; }
+    .field-group { display: flex; flex-direction: column; gap: .3125rem; }
+    .field-group label { font-size: .6875rem; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; }
+    .field-group input, .field-group select, .field-group textarea { padding: .5625rem .75rem; border: 1.5px solid var(--gray-200); border-radius: 7px; font-size: .875rem; font-family: inherit; color: var(--gray-900); outline: none; transition: border-color .15s; background: white; width: 100%; }
+    .field-group input:focus, .field-group select:focus, .field-group textarea:focus { border-color: var(--blue); }
+    .field-group textarea { resize: vertical; min-height: 70px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: .5rem; padding-top: .25rem; }
+    .btn-cancel { padding: .5rem .875rem; border: 1.5px solid var(--gray-200); border-radius: 7px; background: white; color: var(--gray-600); font-size: .8125rem; font-weight: 500; font-family: inherit; cursor: pointer; }
+    .btn-cancel:hover { border-color: var(--gray-300); }
+    .btn-submit { padding: .5rem .875rem; border: none; border-radius: 7px; background: var(--blue); color: white; font-size: .8125rem; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .btn-submit:hover { background: var(--blue-dark); }
+
+    @media (max-width: 700px) {
+      .modal-grid { grid-template-columns: 1fr; }
+      .hide-mobile { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">Ciblage M&A</div>
+          <div class="logo-sub">Entreprises françaises</div>
+        </div>
+      </a>
+
+      <nav class="tabs">
+        <a href="/" class="tab">Recherche</a>
+        <a href="/vendeurs" class="tab active">Base Vendeurs</a>
+      </nav>
+
+      <a href="/logout" class="logout-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Déconnexion
+      </a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="page-title">Base Vendeurs</span>
+        <span class="count-badge" id="countBadge" style="display:none"></span>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-outline green" onclick="exportCSV()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Exporter CSV
+        </button>
+        <button class="btn btn-primary" onclick="openModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Ajouter
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="state-box state-loading" id="stateLoading">
+      <div class="spinner"></div>
+      <span class="loading-text">Chargement de la base vendeurs…</span>
+    </div>
+
+    <!-- Error -->
+    <div class="state-box state-error" id="stateError">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="errorMsg"></span>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Empty -->
+    <div class="empty-state" id="emptyState">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <h3>Aucun vendeur dans la base</h3>
+      <p>Ajoutez des entreprises depuis la recherche ou manuellement.</p>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap" id="tableWrap" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Entreprise</th>
+            <th class="hide-mobile">CA</th>
+            <th>Dirigeant</th>
+            <th>Statut</th>
+            <th>Contact</th>
+            <th class="hide-mobile notes-td">Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <!-- Modal ajout manuel -->
+  <div class="modal-backdrop" id="modalBackdrop" onclick="closeModalOutside(event)">
+    <div class="modal">
+      <h3>Ajouter un vendeur</h3>
+      <div class="modal-grid">
+        <div class="field-group full">
+          <label>Nom de l'entreprise *</label>
+          <input type="text" id="m-nom" placeholder="Dupont SAS">
+        </div>
+        <div class="field-group">
+          <label>SIREN</label>
+          <input type="text" id="m-siren" placeholder="123456789">
+        </div>
+        <div class="field-group">
+          <label>Secteur</label>
+          <input type="text" id="m-secteur" placeholder="Plomberie, Bâtiment…">
+        </div>
+        <div class="field-group">
+          <label>CA (€)</label>
+          <input type="number" id="m-ca" placeholder="2000000">
+        </div>
+        <div class="field-group">
+          <label>Résultat net (€)</label>
+          <input type="number" id="m-rn" placeholder="150000">
+        </div>
+        <div class="field-group full">
+          <label>Dirigeant (nom complet)</label>
+          <input type="text" id="m-dirigeant" placeholder="Jean Dupont">
+        </div>
+        <div class="field-group">
+          <label>Âge dirigeant</label>
+          <input type="number" id="m-age" placeholder="58" min="18" max="100">
+        </div>
+        <div class="field-group">
+          <label>Email</label>
+          <input type="email" id="m-email" placeholder="jean@dupont.fr">
+        </div>
+        <div class="field-group">
+          <label>Téléphone</label>
+          <input type="tel" id="m-tel" placeholder="+33 6 12 34 56 78">
+        </div>
+        <div class="field-group">
+          <label>Statut</label>
+          <select id="m-statut">
+            <option value="prospect">Prospect</option>
+            <option value="contacté">Contacté</option>
+            <option value="intéressé">Intéressé</option>
+            <option value="mandat signé">Mandat signé</option>
+          </select>
+        </div>
+        <div class="field-group full">
+          <label>Notes</label>
+          <textarea id="m-notes" placeholder="Raison de cession, contexte…"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+        <button class="btn-submit" onclick="submitAdd()">Ajouter</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let vendeurs = [];
+
+    // ── Utilitaires ─────────────────────────────────────────────────────────
+    function esc(s) {
+      if (!s && s !== 0) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function empty(s) {
+      return !s && s !== 0 ? '<span class="empty-cell">—</span>' : esc(String(s));
+    }
+
+    function fmtCA(val) {
+      if (!val && val !== 0) return '<span class="empty-cell">—</span>';
+      const n = Number(val);
+      if (n >= 1_000_000) return (n/1_000_000).toLocaleString('fr-FR',{maximumFractionDigits:1})+'&nbsp;M€';
+      if (n >= 1_000)     return (n/1_000).toLocaleString('fr-FR',{maximumFractionDigits:0})+'&nbsp;k€';
+      return n.toLocaleString('fr-FR')+'&nbsp;€';
+    }
+
+    function fmtRN(val) {
+      if (val === '' || val === null || val === undefined) return '';
+      const n = Number(val);
+      if (isNaN(n)) return '';
+      const abs = Math.abs(n);
+      let fmt;
+      if (abs >= 1_000_000) fmt = (abs/1_000_000).toLocaleString('fr-FR',{maximumFractionDigits:1})+'&nbsp;M€';
+      else if (abs >= 1_000) fmt = (abs/1_000).toLocaleString('fr-FR',{maximumFractionDigits:0})+'&nbsp;k€';
+      else fmt = abs.toLocaleString('fr-FR')+'&nbsp;€';
+      const color = n < 0 ? 'var(--red)' : n > 0 ? 'var(--green)' : 'var(--gray-700)';
+      const prefix = n < 0 ? '−' : '';
+      return `<span style="color:${color};font-size:.75rem">${prefix}${fmt}</span>`;
+    }
+
+    function statutClass(s) {
+      if (s === 'contacté')    return 's-contacte';
+      if (s === 'intéressé')   return 's-interesse';
+      if (s === 'mandat signé') return 's-mandat';
+      return 's-prospect';
+    }
+
+    function showToast(msg, type='success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast toast-${type} visible`;
+      setTimeout(() => t.className = 'toast', 3500);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('stateError');
+      document.getElementById('errorMsg').textContent = msg;
+      el.classList.add('visible');
+      setTimeout(() => el.classList.remove('visible'), 5000);
+    }
+
+    // ── Chargement ──────────────────────────────────────────────────────────
+    async function loadVendeurs() {
+      document.getElementById('stateLoading').classList.add('visible');
+      try {
+        const res = await fetch('/api/vendeurs');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+        vendeurs = data.vendeurs || [];
+        renderTable();
+      } catch(e) {
+        showError(e.message);
+      } finally {
+        document.getElementById('stateLoading').classList.remove('visible');
+      }
+    }
+
+    // ── Rendu ────────────────────────────────────────────────────────────────
+    function renderTable() {
+      const n = vendeurs.length;
+      const badge = document.getElementById('countBadge');
+      badge.textContent = `${n} cible${n !== 1 ? 's' : ''}`;
+      badge.style.display = n ? '' : 'none';
+
+      if (!n) {
+        document.getElementById('tableWrap').style.display = 'none';
+        document.getElementById('emptyState').classList.add('visible');
+        return;
+      }
+
+      document.getElementById('emptyState').classList.remove('visible');
+      document.getElementById('tableWrap').style.display = '';
+
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      vendeurs.forEach(v => {
+        const id = v.id;
+
+        // CA + RN
+        const caHtml = v.ca ? `<div class="td-ca">${fmtCA(v.ca)}</div>${v.resultat_net !== null && v.resultat_net !== undefined && v.resultat_net !== '' ? `<div class="td-rn">${fmtRN(v.resultat_net)}</div>` : ''}` : '<span class="empty-cell">—</span>';
+
+        // Dirigeant
+        const dirHtml = v.nom_dirigeant
+          ? `<div>${esc(v.nom_dirigeant)}</div>${v.age_dirigeant ? `<span class="age-badge">${v.age_dirigeant} ans</span>` : ''}`
+          : '<span class="empty-cell">—</span>';
+
+        // Contact
+        let contactHtml = '';
+        if (v.email) contactHtml += `<a href="mailto:${esc(v.email)}">${esc(v.email)}</a>`;
+        if (v.telephone) contactHtml += `<a href="tel:${esc(v.telephone)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(v.telephone)}</a>`;
+        if (!contactHtml) contactHtml = '<span class="empty-cell">—</span>';
+
+        // Pappers link
+        const pappersHtml = v.lien_pappers
+          ? `<a href="${esc(v.lien_pappers)}" target="_blank" rel="noopener" class="action-btn" title="Voir sur Pappers">
+               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+               Pappers
+             </a>` : '';
+
+        const tr = document.createElement('tr');
+        tr.id = `row-${id}`;
+        tr.innerHTML = `
+          <td class="td-company">
+            <strong>${esc(v.nom_entreprise) || '—'}</strong>
+            <div class="siren">${esc(v.siren)}</div>
+            ${v.secteur ? `<div class="sector">${esc(v.secteur)}</div>` : ''}
+          </td>
+          <td class="hide-mobile">${caHtml}</td>
+          <td>${dirHtml}</td>
+          <td>
+            <select class="statut-select ${statutClass(v.statut)}"
+                    onchange="saveStatut('${id}', this)">
+              <option value="prospect"      ${v.statut==='prospect'      ?'selected':''}>Prospect</option>
+              <option value="contacté"      ${v.statut==='contacté'      ?'selected':''}>Contacté</option>
+              <option value="intéressé"     ${v.statut==='intéressé'     ?'selected':''}>Intéressé</option>
+              <option value="mandat signé"  ${v.statut==='mandat signé'  ?'selected':''}>Mandat signé</option>
+            </select>
+          </td>
+          <td class="contact-cell" id="contact-${id}">${contactHtml}</td>
+          <td class="hide-mobile notes-td">
+            <div class="notes-cell"
+                 contenteditable="true"
+                 data-id="${id}"
+                 data-original="${esc(v.notes || '')}"
+                 data-placeholder="Ajouter une note…"
+                 onblur="saveNotes(this)"
+                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}"
+            >${esc(v.notes || '')}</div>
+          </td>
+          <td class="actions-td">
+            <div style="display:flex;gap:.375rem;align-items:center;flex-wrap:wrap">
+              <div class="enrich-wrap" id="ew-${id}">
+                <button class="action-btn enrich" id="enrich-btn-${id}" onclick="toggleEnrichMenu('${id}')">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Enrichir
+                </button>
+                <div class="enrich-menu" id="em-${id}">
+                  <button onclick="enrichVendeur('${id}','both')">✉ + 📞 Email + Téléphone</button>
+                  <button onclick="enrichVendeur('${id}','email')">✉ Email uniquement</button>
+                  <button onclick="enrichVendeur('${id}','phone')">📞 Téléphone uniquement</button>
+                </div>
+              </div>
+              ${pappersHtml}
+              <button class="action-btn danger" onclick="deleteVendeur('${id}', '${esc(v.nom_entreprise)}')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Fermer les menus enrich si on clique ailleurs
+      document.addEventListener('click', closeAllEnrichMenus, { once: false });
+    }
+
+    // ── Statut ───────────────────────────────────────────────────────────────
+    async function saveStatut(id, sel) {
+      const statut = sel.value;
+      sel.className = `statut-select ${statutClass(statut)}`;
+      try {
+        const res = await fetch(`/api/vendeurs/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ statut }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        // Mettre à jour vendeurs local
+        const v = vendeurs.find(x => x.id === id);
+        if (v) v.statut = statut;
+      } catch(e) {
+        showError('Erreur sauvegarde statut : ' + e.message);
+      }
+    }
+
+    // ── Notes ────────────────────────────────────────────────────────────────
+    async function saveNotes(el) {
+      const id = el.dataset.id;
+      const notes = el.textContent.trim();
+      if (notes === el.dataset.original) return;
+      el.dataset.original = notes;
+      try {
+        const res = await fetch(`/api/vendeurs/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        const v = vendeurs.find(x => x.id === id);
+        if (v) v.notes = notes;
+      } catch(e) {
+        showError('Erreur sauvegarde notes : ' + e.message);
+      }
+    }
+
+    // ── Enrich ───────────────────────────────────────────────────────────────
+    function closeAllEnrichMenus(e) {
+      document.querySelectorAll('.enrich-menu.open').forEach(m => {
+        if (!m.closest('.enrich-wrap').contains(e.target)) m.classList.remove('open');
+      });
+    }
+
+    function toggleEnrichMenu(id) {
+      const menu = document.getElementById(`em-${id}`);
+      const isOpen = menu.classList.contains('open');
+      document.querySelectorAll('.enrich-menu.open').forEach(m => m.classList.remove('open'));
+      if (!isOpen) menu.classList.add('open');
+    }
+
+    async function enrichVendeur(id, enrich_type) {
+      document.getElementById(`em-${id}`).classList.remove('open');
+      const btn = document.getElementById(`enrich-btn-${id}`);
+      btn.disabled = true;
+      btn.innerHTML = '<span class="row-spinner"></span> Enrichissement…';
+
+      try {
+        const res = await fetch(`/api/vendeurs/${id}/enrich`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enrich_type }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        // Mettre à jour la cellule contact
+        const v = vendeurs.find(x => x.id === id);
+        if (v) {
+          if (data.email)     v.email     = data.email;
+          if (data.telephone) v.telephone = data.telephone;
+        }
+
+        const contactCell = document.getElementById(`contact-${id}`);
+        let html = '';
+        const email = data.email || (v && v.email);
+        const tel   = data.telephone || (v && v.telephone);
+        if (email) html += `<a href="mailto:${esc(email)}">${esc(email)}</a>`;
+        if (tel)   html += `<a href="tel:${esc(tel)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(tel)}</a>`;
+        if (!html) html = '<span class="empty-cell">—</span>';
+        contactCell.innerHTML = html;
+
+        const found = (email || tel) ? 1 : 0;
+        showToast(found
+          ? `Contact enrichi (${data.credits_used} crédit${data.credits_used !== 1 ? 's' : ''} consommé${data.credits_used !== 1 ? 's' : ''}).`
+          : 'Aucun contact trouvé pour ce dirigeant.');
+      } catch(e) {
+        showError('Enrichissement impossible : ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Enrichir';
+      }
+    }
+
+    // ── Suppression ──────────────────────────────────────────────────────────
+    async function deleteVendeur(id, nom) {
+      if (!confirm(`Supprimer "${nom}" de la base vendeurs ?`)) return;
+      try {
+        const res = await fetch(`/api/vendeurs/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error((await res.json()).error);
+        vendeurs = vendeurs.filter(v => v.id !== id);
+        renderTable();
+        showToast(`"${nom}" supprimé.`);
+      } catch(e) {
+        showError('Erreur suppression : ' + e.message);
+      }
+    }
+
+    // ── Modal ajout ──────────────────────────────────────────────────────────
+    function openModal() {
+      document.getElementById('modalBackdrop').classList.add('open');
+      document.getElementById('m-nom').focus();
+    }
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.remove('open');
+      ['m-nom','m-siren','m-secteur','m-ca','m-rn','m-dirigeant','m-age','m-email','m-tel','m-notes']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      document.getElementById('m-statut').value = 'prospect';
+    }
+    function closeModalOutside(e) {
+      if (e.target === document.getElementById('modalBackdrop')) closeModal();
+    }
+
+    async function submitAdd() {
+      const nom = document.getElementById('m-nom').value.trim();
+      if (!nom) { alert('Le nom de l\'entreprise est requis.'); return; }
+
+      const payload = {
+        nom_entreprise: nom,
+        siren:          document.getElementById('m-siren').value.trim(),
+        secteur:        document.getElementById('m-secteur').value.trim(),
+        ca:             document.getElementById('m-ca').value,
+        resultat_net:   document.getElementById('m-rn').value,
+        nom_dirigeant:  document.getElementById('m-dirigeant').value.trim(),
+        age_dirigeant:  document.getElementById('m-age').value,
+        email:          document.getElementById('m-email').value.trim(),
+        telephone:      document.getElementById('m-tel').value.trim(),
+        statut:         document.getElementById('m-statut').value,
+        notes:          document.getElementById('m-notes').value.trim(),
+      };
+
+      try {
+        const res = await fetch('/api/vendeurs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.status === 409) { showToast(data.error, 'error'); closeModal(); return; }
+        if (!res.ok) throw new Error(data.error);
+        closeModal();
+        await loadVendeurs();
+        showToast(`"${nom}" ajouté à la base vendeurs.`);
+      } catch(e) {
+        showError('Erreur ajout : ' + e.message);
+      }
+    }
+
+    // ── Export CSV ───────────────────────────────────────────────────────────
+    function exportCSV() {
+      window.location.href = '/api/vendeurs/export';
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    loadVendeurs();
+  </script>
+</body>
+</html>

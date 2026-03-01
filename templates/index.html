@@ -681,6 +681,12 @@
           <div class="logo-sub">Entreprises françaises</div>
         </div>
       </a>
+
+      <nav style="display:flex;gap:0;border-bottom:none;height:60px">
+        <a href="/" style="padding:0 1rem;height:60px;display:flex;align-items:center;font-size:.875rem;font-weight:600;color:var(--blue);text-decoration:none;border-bottom:2px solid var(--blue);">Recherche</a>
+        <a href="/vendeurs" style="padding:0 1rem;height:60px;display:flex;align-items:center;font-size:.875rem;font-weight:500;color:var(--gray-500);text-decoration:none;border-bottom:2px solid transparent;transition:color .15s;" onmouseover="this.style.color='var(--gray-700)'" onmouseout="this.style.color='var(--gray-500)'">Base Vendeurs</a>
+      </nav>
+
       <a href="/logout" class="logout-btn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -904,6 +910,12 @@
         <button class="enrich-btn" id="enrichBtn" onclick="openEnrichConfirm()">
           Enrichir les contacts
         </button>
+        <button class="export-btn" id="addBaseBtn" onclick="addToBase()" style="border-color:var(--blue);color:var(--blue)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Ajouter à la base
+        </button>
         <button class="export-btn" onclick="exportCSV()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -959,6 +971,9 @@
     <!-- Enrich result -->
     <div class="enrich-result" id="enrichResult"></div>
 
+    <!-- Add to base result -->
+    <div class="enrich-result" id="addBaseResult" style="background:var(--blue-light);border-color:var(--blue-border);color:var(--blue-dark)"></div>
+
     <!-- Table -->
     <div class="table-wrap" id="tableWrap">
       <table>
@@ -998,7 +1013,7 @@
     function hide(id)  { document.getElementById(id).classList.remove('visible'); }
     function hideAll() {
       ['loading', 'errorBox', 'resultsHeader', 'tableWrap', 'emptyState',
-       'enrichConfirm', 'enrichLoading', 'enrichResult']
+       'enrichConfirm', 'enrichLoading', 'enrichResult', 'addBaseResult']
         .forEach(hide);
       const checkAll = document.getElementById('checkAll');
       if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
@@ -1293,6 +1308,43 @@
         document.getElementById('enrichBtn').disabled = false;
         pendingEnrichContacts = [];
       }
+    }
+
+    // ── Ajouter à la base vendeurs ──────────────────────────────────────────
+    async function addToBase() {
+      if (!currentResults.length) return;
+      const checkedIdx = getCheckedIndices();
+      const indices = checkedIdx.length > 0 ? checkedIdx : currentResults.map((_,i) => i);
+      const toAdd = indices.map(i => currentResults[i]);
+
+      const btn = document.getElementById('addBaseBtn');
+      btn.disabled = true;
+      btn.textContent = 'Ajout en cours…';
+
+      let added = 0, duplicates = 0, errors = 0;
+      for (const r of toAdd) {
+        try {
+          const res = await fetch('/api/vendeurs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(r),
+          });
+          if (res.status === 409) duplicates++;
+          else if (res.ok) added++;
+          else errors++;
+        } catch { errors++; }
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Ajouter à la base';
+
+      let msg = `${added} entreprise${added !== 1 ? 's' : ''} ajoutée${added !== 1 ? 's' : ''} à la base vendeurs`;
+      if (duplicates) msg += ` · ${duplicates} doublon${duplicates !== 1 ? 's' : ''} ignoré${duplicates !== 1 ? 's' : ''}`;
+      if (errors) msg += ` · ${errors} erreur${errors !== 1 ? 's' : ''}`;
+      const r = document.getElementById('addBaseResult');
+      r.textContent = msg + '.';
+      r.classList.add('visible');
+      setTimeout(() => r.classList.remove('visible'), 4000);
     }
 
     // ── Export CSV ──────────────────────────────────────────────────────────

@@ -344,6 +344,11 @@ def extract_company_info(company: dict, details: dict) -> dict:
         or ""
     )
     resultat_net = finances0.get("resultat") if finances0 else None
+    secteur = (
+        company.get("libelle_code_naf")
+        or details.get("libelle_code_naf")
+        or ""
+    )
 
     # --- Effectif ---
     # effectifs_finances (nombre entier) > effectif (chaîne) > tranche_effectif
@@ -422,6 +427,7 @@ def extract_company_info(company: dict, details: dict) -> dict:
         "siren": siren,
         "chiffre_affaires": ca,
         "resultat_net": resultat_net if resultat_net is not None else "",
+        "secteur": secteur,
         "effectif": effectif,
         "adresse": adresse,
         "site_web": site_web,
