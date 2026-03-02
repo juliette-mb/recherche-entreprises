@@ -331,37 +331,35 @@ def api_search():
     )
 
     # Si des filtres serveur sont actifs, récupérer plus de résultats bruts
-    # (data.gouv.fr ne filtre pas par CA/âge/effectif/résultat)
     user_max = args.max_resultats
     has_server_filters = any([
         args.effectif_min, args.effectif_max,
         args.resultat_net_min, args.resultat_net_max,
         args.age_min_dirigeant,
-        args.ca_min, args.ca_max,  # server-side pour data.gouv.fr
+        args.ca_min, args.ca_max,
     ])
     if has_server_filters:
         args.max_resultats = min(user_max * 4, 80)
 
-    # ── Waterfall : data.gouv.fr d'abord, Pappers en fallback ──────────────
-    source = "data.gouv.fr"
+    # ── Source choisie par l'utilisateur ───────────────────────────────────
+    use_pappers = data.get("use_pappers", False)
     pappers_search_calls = 0
     total_count = 0
     companies_raw: list[dict] = []
 
-    try:
-        companies_raw, total_count = search_datagouv(args)
-    except Exception as e:
-        print(f"  data.gouv.fr indisponible : {e}", flush=True)
-        companies_raw = []
-
-    if not companies_raw:
-        print("  fallback Pappers activé", flush=True)
-        source = "Pappers (fallback)"
+    if use_pappers:
+        source = "Pappers"
         pappers_search_calls = 1
         try:
             companies_raw, total_count = search_pappers(args)
         except Exception as e:
             return jsonify({"error": f"Erreur API Pappers : {str(e)}"}), 502
+    else:
+        source = "data.gouv.fr"
+        try:
+            companies_raw, total_count = search_datagouv(args)
+        except Exception as e:
+            return jsonify({"error": f"Erreur data.gouv.fr : {str(e)}"}), 502
 
     fetched_count = len(companies_raw)
 

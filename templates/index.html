@@ -331,9 +331,43 @@
     /* ── Search actions ── */
     .search-actions {
       display: flex;
+      align-items: center;
       justify-content: flex-end;
+      gap: 1rem;
       padding-top: .375rem;
     }
+
+    .source-toggle {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      cursor: pointer;
+      font-size: .8125rem;
+      color: var(--gray-500);
+      user-select: none;
+    }
+    .source-toggle input[type="checkbox"] { display: none; }
+    .source-toggle .toggle-track {
+      width: 36px; height: 20px;
+      background: var(--gray-200);
+      border-radius: 10px;
+      position: relative;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .source-toggle input:checked + .toggle-track { background: var(--blue); }
+    .source-toggle .toggle-thumb {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: left .15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .source-toggle input:checked ~ .toggle-thumb,
+    .source-toggle .toggle-track .toggle-thumb { left: 2px; }
+    .source-toggle input:checked + .toggle-track .toggle-thumb { left: 18px; }
 
     .search-btn {
       display: flex;
@@ -1038,6 +1072,11 @@
         </details>
 
         <div class="search-actions">
+          <label class="source-toggle" title="Coché = recherche via Pappers (données financières natives) · Décoché = data.gouv.fr (annuaire gratuit)">
+            <input type="checkbox" name="use_pappers" id="usePappers">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span id="sourceLabel">data.gouv.fr</span>
+          </label>
           <button class="search-btn" id="searchBtn" type="submit">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -1250,6 +1289,11 @@
       renderResults(getDisplayedResults());
     }
 
+    // Mise à jour du label source selon le toggle
+    document.getElementById('usePappers').addEventListener('change', function() {
+      document.getElementById('sourceLabel').textContent = this.checked ? 'Pappers' : 'data.gouv.fr';
+    });
+
     function _buildCountHtml(n, fetched, pTotal, source, pappersCallsN) {
       let html = `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
       if (fetched > n) {
@@ -1424,6 +1468,7 @@
       const form = document.getElementById('searchForm');
       const btn  = document.getElementById('searchBtn');
 
+      const usePappers = form.use_pappers.checked;
       const payload = {
         nom_entreprise:    form.nom_entreprise.value.trim(),
         nom_dirigeant:     form.nom_dirigeant.value.trim(),
@@ -1445,12 +1490,13 @@
         ville:             form.ville.value.trim(),
         statut_rcs:        form.statut_rcs.value,
         en_activite:       form.en_activite.checked,
+        use_pappers:       usePappers,
       };
 
       btn.disabled = true;
       hideAll();
       show('loading');
-      setLoadingStep('Interrogation de la base Pappers…');
+      setLoadingStep(usePappers ? 'Interrogation de Pappers…' : 'Interrogation de data.gouv.fr…');
 
       const loadingTimer = setTimeout(() => {
         setLoadingStep('Récupération des détails des entreprises…');
