@@ -134,6 +134,7 @@ def _int(val):
 
 # Codes Pappers tranche_effectif → (min, max) salariés
 _PAPPERS_TRANCHE = {
+    "NN": (0, 0),
     "00": (0, 0),
     "01": (1, 2),
     "02": (3, 5),
@@ -330,14 +331,20 @@ def api_search():
         entreprise_cessee=not data.get("en_activite", True),
     )
 
-    # Si des filtres serveur sont actifs, récupérer plus de résultats bruts
+    # Si des filtres serveur sont actifs, récupérer plus de résultats bruts.
+    # En mode data.gouv.fr, CA/résultat/âge sont filtrés nativement par l'API ;
+    # seul l'effectif reste côté serveur (conversion tranche ↔ min/max).
     user_max = args.max_resultats
-    has_server_filters = any([
-        args.effectif_min, args.effectif_max,
-        args.resultat_net_min, args.resultat_net_max,
-        args.age_min_dirigeant,
-        args.ca_min, args.ca_max,
-    ])
+    use_pappers_for_has = data.get("use_pappers", False)
+    if use_pappers_for_has:
+        has_server_filters = any([
+            args.effectif_min, args.effectif_max,
+            args.resultat_net_min, args.resultat_net_max,
+            args.age_min_dirigeant,
+            args.ca_min, args.ca_max,
+        ])
+    else:
+        has_server_filters = any([args.effectif_min, args.effectif_max])
     if has_server_filters:
         args.max_resultats = min(user_max * 4, 80)
 

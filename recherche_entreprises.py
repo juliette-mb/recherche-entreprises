@@ -92,6 +92,26 @@ def _fullenrich_key() -> str:
 # ---------------------------------------------------------------------------
 PAPPERS_BASE_URL   = "https://api.pappers.fr/v2"
 DATAGOUV_BASE_URL  = "https://recherche-entreprises.api.gouv.fr/search"
+
+# Codes INSEE tranche effectif → label lisible (commun data.gouv.fr et Pappers)
+_DATAGOUV_TRANCHE_LABEL: dict[str, str] = {
+    "NN": "0 salarié",
+    "00": "0 salarié",
+    "01": "1 à 2 salariés",
+    "02": "3 à 5 salariés",
+    "03": "6 à 9 salariés",
+    "11": "10 à 19 salariés",
+    "12": "20 à 49 salariés",
+    "21": "50 à 99 salariés",
+    "22": "100 à 199 salariés",
+    "31": "200 à 249 salariés",
+    "32": "250 à 499 salariés",
+    "41": "500 à 999 salariés",
+    "42": "1 000 à 1 999 salariés",
+    "51": "2 000 à 4 999 salariés",
+    "52": "5 000 à 9 999 salariés",
+    "53": "10 000 salariés et plus",
+}
 FULLENRICH_BASE_URL = "https://app.fullenrich.com/api/v2"
 
 # ---------------------------------------------------------------------------
@@ -224,6 +244,9 @@ def normalize_datagouv_company(company_dg: dict) -> dict:
         ca = year_data.get("ca")
         resultat_net = year_data.get("resultat_net")
 
+    tranche_code = company_dg.get("tranche_effectif_salarie") or ""
+    tranche_label = _DATAGOUV_TRANCHE_LABEL.get(tranche_code, "")
+
     return {
         "nom_entreprise": company_dg.get("nom_complet", ""),
         "siren": company_dg.get("siren", ""),
@@ -232,7 +255,8 @@ def normalize_datagouv_company(company_dg: dict) -> dict:
         "chiffre_affaires": ca,
         "resultat_net": resultat_net,
         "effectifs_finances": None,
-        "tranche_effectif": company_dg.get("tranche_effectif_salarie", ""),
+        "tranche_effectif": tranche_code,   # code brut pour _parse_effectif
+        "effectif": tranche_label,           # label lisible pour affichage
         "siege": {
             # full address string → extract_company_info utilisera adresse_ligne_1
             "adresse_ligne_1": siege_dg.get("adresse", ""),
@@ -276,14 +300,6 @@ def search_datagouv(args) -> tuple[list[dict], int]:
     if ville:
         q_parts.append(ville.strip())
 
-    nom_dirigeant = getattr(args, 'nom_dirigeant', None)
-    if nom_dirigeant:
-        q_parts.append(nom_dirigeant.strip())
-
-    prenom_dirigeant = getattr(args, 'prenom_dirigeant', None)
-    if prenom_dirigeant:
-        q_parts.append(prenom_dirigeant.strip())
-
     if q_parts:
         params["q"] = " ".join(q_parts)
 
@@ -301,6 +317,37 @@ def search_datagouv(args) -> tuple[list[dict], int]:
     categorie_juridique = getattr(args, 'categorie_juridique', None)
     if categorie_juridique:
         params["nature_juridique"] = categorie_juridique
+
+    # Filtres financiers natifs (data.gouv.fr les supporte directement)
+    ca_min = getattr(args, 'ca_min', None)
+    if ca_min:
+        params["ca_min"] = ca_min
+    ca_max = getattr(args, 'ca_max', None)
+    if ca_max:
+        params["ca_max"] = ca_max
+    rn_min = getattr(args, 'resultat_net_min', None)
+    if rn_min:
+        params["resultat_net_min"] = rn_min
+    rn_max = getattr(args, 'resultat_net_max', None)
+    if rn_max:
+        params["resultat_net_max"] = rn_max
+
+    # Âge dirigeant → date de naissance max
+    age_min = getattr(args, 'age_min_dirigeant', None)
+    if age_min:
+        max_birth_year = datetime.now().year - age_min
+        params["date_naissance_personne_max"] = f"{max_birth_year}-12-31"
+        params["type_personne"] = "dirigeant"
+
+    # Nom/prénom dirigeant — paramètres dédiés (plus précis que la recherche textuelle)
+    nom_dirigeant = getattr(args, 'nom_dirigeant', None)
+    if nom_dirigeant:
+        params["nom_personne"] = nom_dirigeant.strip()
+        params.setdefault("type_personne", "dirigeant")
+    prenom_dirigeant = getattr(args, 'prenom_dirigeant', None)
+    if prenom_dirigeant:
+        params["prenoms_personne"] = prenom_dirigeant.strip()
+        params.setdefault("type_personne", "dirigeant")
 
     max_resultats = args.max_resultats
     per_page = min(25, max_resultats)  # data.gouv.fr limite à 25 par page
