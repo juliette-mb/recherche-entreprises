@@ -18,6 +18,8 @@ import time
 from functools import wraps
 from types import SimpleNamespace
 
+import re
+
 import requests
 from dotenv import load_dotenv
 from flask import (
@@ -129,23 +131,104 @@ def _int(val):
         return None
 
 
+# Codes Pappers tranche_effectif → (min, max) salariés
+_PAPPERS_TRANCHE = {
+    "00": (0, 0),
+    "01": (1, 2),
+    "02": (3, 5),
+    "03": (6, 9),
+    "11": (10, 19),
+    "12": (20, 49),
+    "21": (50, 99),
+    "22": (100, 199),
+    "31": (200, 249),
+    "32": (250, 499),
+    "41": (500, 999),
+    "42": (1000, 1999),
+    "51": (2000, 4999),
+    "52": (5000, 9999),
+    "53": (10000, None),
+}
+
+
+def _parse_effectif(val):
+    """Parse une valeur effectif vers (lo, hi) inclusive.
+    hi=None = sans limite haute. (None, None) = inconnu.
+    Gère : int, code Pappers ("02"), nombre ("42"),
+           "Entre 3 et 5 salariés", "0 salarié", "10 000 et plus".
+    """
+    if val is None:
+        return None, None
+    if isinstance(val, int):
+        return val, val
+    s = str(val).strip()
+    # Code Pappers à 2 caractères (ex: "02" = 3-5, "12" = 20-49)
+    if s in _PAPPERS_TRANCHE:
+        return _PAPPERS_TRANCHE[s]
+    # Nombre simple
+    try:
+        n = int(s)
+        return n, n
+    except ValueError:
+        pass
+    # "Entre X et Y salariés" (champ effectif Pappers /entreprise)
+    m = re.match(r"Entre\s+([\d\s]+)\s+et\s+([\d\s]+)", s)
+    if m:
+        return int(m.group(1).replace(" ", "")), int(m.group(2).replace(" ", ""))
+    # "0 salarié" ou "X salarié(s)"
+    m = re.match(r"^(\d+)\s+salarié", s)
+    if m:
+        n = int(m.group(1))
+        return n, n
+    # "X 000 et plus"
+    m = re.match(r"^([\d\s]+)\s+et\s+plus", s)
+    if m:
+        return int(m.group(1).replace(" ", "")), None
+    # "X à Y"
+    m = re.match(r"^(\d+)\s+à\s+(\d+)$", s)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None, None
+
+
 def _filter_effectif(companies, min_val, max_val):
-    """Filtre côté serveur sur _effectifs_finances. Inclut les entreprises sans valeur connue."""
+    """Filtre côté serveur sur _effectifs_finances.
+    Parse les tranches Pappers ("10 à 19", "10000 et plus").
+    Inclut les entreprises sans effectif connu (inconnu ≠ exclu).
+    """
     if min_val is None and max_val is None:
         return companies
     result = []
     for c in companies:
-        val = c.get("_effectifs_finances")
-        if val is None:
+        lo, hi = _parse_effectif(c.get("_effectifs_finances"))
+        if lo is None:
+            # Effectif inconnu → on garde
+            result.append(c)
+            continue
+        # Exclure si toute la tranche est au-dessus du max demandé
+        if max_val is not None and lo > max_val:
+            continue
+        # Exclure si toute la tranche est en-dessous du min demandé
+        # hi=None ("et plus") ne peut pas être en-dessous d'un min
+        if min_val is not None and hi is not None and hi < min_val:
+            continue
+        result.append(c)
+    return result
+
+
+def _filter_age_dirigeant(companies, min_age):
+    """Filtre côté serveur sur age_dirigeant. Inclut les entreprises sans âge connu."""
+    if min_age is None:
+        return companies
+    result = []
+    for c in companies:
+        age = c.get("age_dirigeant")
+        if not age:
             result.append(c)
             continue
         try:
-            n = int(val)
-            if min_val is not None and n < min_val:
-                continue
-            if max_val is not None and n > max_val:
-                continue
-            result.append(c)
+            if int(age) >= min_age:
+                result.append(c)
         except (TypeError, ValueError):
             result.append(c)
     return result
@@ -223,7 +306,7 @@ def api_search():
 
     # Recherche Pappers
     try:
-        companies_raw = search_pappers(args)
+        companies_raw, pappers_total = search_pappers(args)
     except Exception as e:
         return jsonify({"error": f"Erreur API Pappers : {str(e)}"}), 502
 
@@ -240,6 +323,7 @@ def api_search():
     # Filtres côté serveur
     companies_info = _filter_effectif(companies_info, args.effectif_min, args.effectif_max)
     companies_info = _filter_resultat_net(companies_info, args.resultat_net_min, args.resultat_net_max)
+    companies_info = _filter_age_dirigeant(companies_info, args.age_min_dirigeant)
 
     # Nettoyage + ajout des données d'enrichissement Fullenrich
     clean = []
@@ -255,7 +339,7 @@ def api_search():
             }
         clean.append(row)
 
-    return jsonify({"results": clean, "total": len(clean)})
+    return jsonify({"results": clean, "total": len(clean), "pappers_total": pappers_total})
 
 
 # ---------------------------------------------------------------------------
@@ -572,7 +656,7 @@ def api_vendeurs_update(vid):
 
     allowed = {
         "statut", "notes", "email", "telephone",
-        "raison_cession", "nom_entreprise", "ca", "secteur",
+        "raison_cession", "nom_entreprise", "ca", "secteur", "mandat",
     }
     update = {k: v for k, v in data.items() if k in allowed}
     if not update:
@@ -877,7 +961,7 @@ def api_acheteurs_update(aid):
     allowed = {
         "statut", "notes", "email", "telephone",
         "nom", "prenom", "titre", "entreprise",
-        "secteurs_interet", "taille_cibles",
+        "secteurs_interet", "taille_cibles", "mandat",
     }
     update = {k: v for k, v in data.items() if k in allowed}
     if not update:

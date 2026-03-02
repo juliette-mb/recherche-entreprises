@@ -476,6 +476,26 @@
       white-space: nowrap;
     }
 
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover { background: var(--gray-100); }
+    th.sortable.active { color: var(--blue); }
+    .sort-arrow { font-size: .65rem; margin-left: .2rem; opacity: .7; }
+
+    .table-filter-input {
+      padding: .35rem .625rem;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 6px;
+      font-size: .8125rem;
+      font-family: inherit;
+      width: 200px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .table-filter-input:focus { border-color: var(--blue); }
+
     tbody tr {
       border-bottom: 1px solid var(--gray-100);
       transition: background .1s;
@@ -709,6 +729,95 @@
       .filters-grid { grid-template-columns: 1fr; }
       th, td { padding: .625rem .75rem; }
       .hide-mobile { display: none; }
+    }
+    /* ── Panneau latéral Pappers ───────────────────────── */
+    #pappersPanel {
+      position: fixed;
+      top: 0; right: 0;
+      width: 48%;
+      height: 100vh;
+      background: white;
+      box-shadow: -4px 0 24px rgb(0 0 0 / .15);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform .25s ease;
+    }
+    #pappersPanel.open { transform: translateX(0); }
+
+    #pappersPanel .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem 1rem;
+      border-bottom: 1px solid var(--gray-200);
+      background: var(--gray-50);
+      flex-shrink: 0;
+    }
+    #pappersPanel .panel-title {
+      font-weight: 600;
+      font-size: .875rem;
+      color: var(--gray-900);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: calc(100% - 120px);
+    }
+    #pappersPanel .panel-actions {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #pappersPanel .panel-actions a,
+    #pappersPanel .panel-actions button {
+      font-size: .75rem;
+      padding: .3rem .6rem;
+      border-radius: 6px;
+      border: 1px solid var(--gray-200);
+      background: white;
+      color: var(--blue);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+    }
+    #pappersPanel .panel-actions button.close-btn {
+      color: var(--gray-500);
+    }
+    #pappersPanel iframe {
+      flex: 1;
+      border: none;
+      width: 100%;
+    }
+    #pappersPanel .iframe-blocked {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: var(--gray-500);
+      font-size: .875rem;
+      text-align: center;
+      padding: 2rem;
+    }
+    #pappersPanel .iframe-blocked a {
+      color: var(--blue);
+      text-decoration: underline;
+    }
+    #panelOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgb(0 0 0 / .15);
+      z-index: 999;
+    }
+    #panelOverlay.open { display: block; }
+    @media (max-width: 900px) {
+      #pappersPanel { width: 100%; }
     }
   </style>
 </head>
@@ -957,7 +1066,12 @@
 
     <!-- Results header -->
     <div class="results-header" id="resultsHeader">
-      <div class="results-count" id="resultsCount"></div>
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+        <div class="results-count" id="resultsCount"></div>
+        <input type="text" id="tableFilter" class="table-filter-input"
+               placeholder="Filtrer par nom..."
+               oninput="setFilterText(this.value)">
+      </div>
       <div style="display:flex;gap:.5rem;">
         <button class="enrich-btn" id="enrichBtn" onclick="openEnrichConfirm()">
           Enrichir les contacts
@@ -1039,12 +1153,12 @@
         <thead>
           <tr>
             <th class="col-check"><input type="checkbox" id="checkAll" title="Tout sélectionner" onchange="toggleSelectAll(this.checked)"></th>
-            <th>Entreprise</th>
-            <th>Chiffre d'affaires</th>
-            <th class="hide-mobile">Résultat net</th>
-            <th class="hide-mobile">Effectif</th>
+            <th class="sortable" data-col="nom" onclick="setSortCol('nom')">Entreprise<span class="sort-arrow"></span></th>
+            <th class="sortable" data-col="ca" onclick="setSortCol('ca')">Chiffre d'affaires<span class="sort-arrow"></span></th>
+            <th class="sortable hide-mobile" data-col="rn" onclick="setSortCol('rn')">Résultat net<span class="sort-arrow"></span></th>
+            <th class="sortable hide-mobile" data-col="effectif" onclick="setSortCol('effectif')">Effectif<span class="sort-arrow"></span></th>
             <th class="hide-mobile">Adresse</th>
-            <th>Dirigeant</th>
+            <th class="sortable" data-col="age" onclick="setSortCol('age')">Dirigeant<span class="sort-arrow"></span></th>
             <th>Contact</th>
             <th class="hide-mobile">Fiche Pappers</th>
           </tr>
@@ -1067,6 +1181,75 @@
   <script>
     let currentResults = [];
 
+    // ── Tri / Filtre tableau ─────────────────────────────────────────────────
+    let _sortCol  = null;
+    let _sortDir  = 1;   // 1 = asc, -1 = desc
+    let _filterText = '';
+
+    function _norm(s) {
+      return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function _effectifNum(str) {
+      const m = String(str || '').match(/\d+/);
+      return m ? parseInt(m[0]) : -1;
+    }
+
+    function _sortVal(r, col) {
+      switch (col) {
+        case 'nom':     return _norm(r.nom_entreprise);
+        case 'ca':      return Number(r.chiffre_affaires) || -1;
+        case 'rn':      return (r.resultat_net !== '' && r.resultat_net !== null) ? Number(r.resultat_net) : -Infinity;
+        case 'effectif': return _effectifNum(r.effectif);
+        case 'age':     return Number(r.age_dirigeant) || -1;
+        default:        return '';
+      }
+    }
+
+    function getDisplayedResults() {
+      let res = currentResults;
+      if (_filterText) {
+        const q = _norm(_filterText);
+        res = res.filter(r =>
+          _norm(r.nom_entreprise).includes(q) || _norm(r.nom_dirigeant).includes(q)
+        );
+      }
+      if (_sortCol) {
+        res = [...res].sort((a, b) => {
+          const va = _sortVal(a, _sortCol), vb = _sortVal(b, _sortCol);
+          if (va < vb) return -_sortDir;
+          if (va > vb) return _sortDir;
+          return 0;
+        });
+      }
+      return res;
+    }
+
+    function _updateSortHeaders() {
+      document.querySelectorAll('th[data-col]').forEach(th => {
+        const active = th.dataset.col === _sortCol;
+        th.classList.toggle('active', active);
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) arrow.textContent = active ? (_sortDir === 1 ? ' ▲' : ' ▼') : '';
+      });
+    }
+
+    function setSortCol(col) {
+      if (_sortCol === col) { _sortDir *= -1; }
+      else { _sortCol = col; _sortDir = 1; }
+      _updateSortHeaders();
+      renderTable();
+    }
+
+    function setFilterText(val) {
+      _filterText = val.trim();
+      renderTable();
+    }
+
+    function renderTable() {
+      renderResults(getDisplayedResults());
+    }
+
     // ── Utilitaires UI ──────────────────────────────────────────────────────
     function show(id)  { document.getElementById(id).classList.add('visible'); }
     function hide(id)  { document.getElementById(id).classList.remove('visible'); }
@@ -1076,6 +1259,11 @@
         .forEach(hide);
       const checkAll = document.getElementById('checkAll');
       if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
+      // Réinitialiser tri et filtre
+      _sortCol = null; _sortDir = 1; _filterText = '';
+      _updateSortHeaders();
+      const tf = document.getElementById('tableFilter');
+      if (tf) tf.value = '';
     }
 
     function setLoadingStep(msg) {
@@ -1114,6 +1302,21 @@
       return !s ? '<span class="empty-cell">—</span>' : esc(String(s));
     }
 
+    function slugify(s) {
+      return (s || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // accents
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+    }
+
+    function pappersUrl(nom, siren) {
+      const slug = slugify(nom);
+      if (!slug || !siren) return '';
+      return `https://www.pappers.fr/entreprise/${slug}-${siren}`;
+    }
+
     // ── Rendu tableau ───────────────────────────────────────────────────────
     function renderResults(results) {
       const tbody = document.getElementById('resultsBody');
@@ -1135,11 +1338,12 @@
         if (!contact)           contact  = '<span class="empty-cell">—</span>';
 
         const tr = document.createElement('tr');
-        const pappersCell = r.pappers_url
-          ? `<a href="${esc(r.pappers_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:.25rem;color:var(--blue);font-size:.75rem;text-decoration:none;white-space:nowrap;">
+        const _pUrl = pappersUrl(r.nom_entreprise, r.siren);
+        const pappersCell = _pUrl
+          ? `<button onclick="openPappers('${_pUrl.replace(/'/g,"\\'")}','${esc(r.nom_entreprise).replace(/'/g,"\\'")}');event.stopPropagation()" style="display:inline-flex;align-items:center;gap:.25rem;color:var(--blue);font-size:.75rem;background:none;border:none;cursor:pointer;padding:0;white-space:nowrap;">
                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-               Voir
-             </a>`
+               Pappers
+             </button>`
           : '<span class="empty-cell">—</span>';
 
         tr.innerHTML = `
@@ -1247,16 +1451,20 @@
         }
 
         currentResults = data.results || [];
+        window._pappersTotal = data.pappers_total || 0;
         _saveSearchState();
 
         if (currentResults.length === 0) {
           show('emptyState');
         } else {
           const n = currentResults.length;
-          document.getElementById('resultsCount').innerHTML =
-            `<strong>${n}</strong> entreprise${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}`;
+          const pTotal = data.pappers_total || 0;
+          const countHtml = pTotal > n
+            ? `<strong>${n}</strong> / <strong>${pTotal.toLocaleString('fr-FR')}</strong> résultats`
+            : `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
+          document.getElementById('resultsCount').innerHTML = countHtml;
           show('resultsHeader');
-          renderResults(currentResults);
+          renderTable();
           show('tableWrap');
         }
 
@@ -1352,7 +1560,7 @@
         });
 
         // Re-rendu du tableau
-        renderResults(currentResults);
+        renderTable();
 
         const found = (data.enriched || []).filter(e => e.email || e.mobile).length;
         const total = contacts.length;
@@ -1603,6 +1811,7 @@
       try {
         sessionStorage.setItem(SS_KEY, JSON.stringify({
           results: currentResults,
+          pappersTotal: window._pappersTotal || 0,
           form: formState,
         }));
       } catch(e) {}
@@ -1628,16 +1837,64 @@
 
         // Restaurer les résultats
         currentResults = state.results;
+        window._pappersTotal = state.pappersTotal || 0;
         const n = currentResults.length;
-        document.getElementById('resultsCount').innerHTML =
-          `<strong>${n}</strong> entreprise${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}`;
+        const pTotal = window._pappersTotal;
+        document.getElementById('resultsCount').innerHTML = pTotal > n
+          ? `<strong>${n}</strong> / <strong>${pTotal.toLocaleString('fr-FR')}</strong> résultats`
+          : `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
         show('resultsHeader');
-        renderResults(currentResults);
+        renderTable();
         show('tableWrap');
       } catch(e) {}
     }
 
     _restoreSearchState();
+  </script>
+
+  <!-- Panneau latéral Pappers -->
+  <div id="panelOverlay" onclick="closePappers()"></div>
+  <div id="pappersPanel">
+    <div class="panel-header">
+      <span class="panel-title" id="panelTitle"></span>
+      <div class="panel-actions">
+        <a id="panelExtLink" href="#" target="_blank" rel="noopener">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Ouvrir
+        </a>
+        <button class="close-btn" onclick="closePappers()">✕ Fermer</button>
+      </div>
+    </div>
+    <div id="panelBody" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
+  </div>
+
+  <script>
+    // ── Panneau latéral Pappers ──────────────────────────────────────────────
+    function openPappers(url, nom) {
+      const panel   = document.getElementById('pappersPanel');
+      const overlay = document.getElementById('panelOverlay');
+      const title   = document.getElementById('panelTitle');
+      const extLink = document.getElementById('panelExtLink');
+      const body    = document.getElementById('panelBody');
+
+      title.textContent = nom || 'Fiche Pappers';
+      extLink.href = url;
+
+      // Vide et recharge l'iframe
+      body.innerHTML = `<iframe src="${url}" onload="this.dataset.loaded='1'" onerror="this.dataset.err='1'"></iframe>`;
+
+      panel.classList.add('open');
+      overlay.classList.add('open');
+    }
+
+    function closePappers() {
+      const panel   = document.getElementById('pappersPanel');
+      const overlay = document.getElementById('panelOverlay');
+      const body    = document.getElementById('panelBody');
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+      body.innerHTML = '';  // libère l'iframe
+    }
   </script>
 </body>
 </html>

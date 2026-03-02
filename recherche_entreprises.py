@@ -180,7 +180,7 @@ Exemples :
 # ---------------------------------------------------------------------------
 # Pappers — Recherche
 # ---------------------------------------------------------------------------
-def search_pappers(args: argparse.Namespace) -> list[dict]:
+def search_pappers(args: argparse.Namespace) -> tuple[list[dict], int]:
     """
     Interroge l'endpoint /recherche de Pappers avec les critères fournis.
     Retourne la liste brute des entreprises (format Pappers).
@@ -188,6 +188,7 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
     print("\nRecherche Pappers en cours...")
 
     companies: list[dict] = []
+    total_pappers: int = 0
     page = 1
     par_page = min(100, args.max_resultats)
 
@@ -273,6 +274,7 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
         total: int = data.get("total", 0)
 
         if page == 1:
+            total_pappers = total
             print(f"  {total} entreprise(s) trouvée(s) au total (on récupère max {args.max_resultats})")
 
         if not results:
@@ -288,7 +290,7 @@ def search_pappers(args: argparse.Namespace) -> list[dict]:
         page += 1
         time.sleep(PAPPERS_DELAY)
 
-    return companies[: args.max_resultats]
+    return companies[: args.max_resultats], total_pappers
 
 
 # ---------------------------------------------------------------------------
@@ -373,12 +375,12 @@ def extract_company_info(company: dict, details: dict) -> dict:
     # --- Dirigeant principal ---
     # L'endpoint /entreprise expose les dirigeants dans "representants" ;
     # l'endpoint /recherche les expose dans "dirigeants" (souvent vide).
-    dirigeants: list[dict] = (
+    dirigeants: list[dict] = [d for d in (
         details.get("representants")
         or details.get("dirigeants")
         or company.get("dirigeants")
         or []
-    )
+    ) if d]
     dirigeant: dict = {}
     for d in dirigeants:
         # Ignorer les personnes morales (filiales, holdings)
@@ -394,10 +396,10 @@ def extract_company_info(company: dict, details: dict) -> dict:
     nom_dir = ""
 
     if dirigeant:
-        prenom_dir = dirigeant.get("prenom", "").strip()
-        nom_dir = dirigeant.get("nom", "").strip()
+        prenom_dir = (dirigeant.get("prenom") or "").strip()
+        nom_dir = (dirigeant.get("nom") or "").strip()
         # Préférer nom_complet (fourni par /entreprise) pour éviter les virgules dans les prénoms multiples
-        nom_dirigeant = dirigeant.get("nom_complet", "").strip() or " ".join(filter(None, [prenom_dir, nom_dir]))
+        nom_dirigeant = (dirigeant.get("nom_complet") or "").strip() or " ".join(filter(None, [prenom_dir, nom_dir]))
 
         age_dirigeant = dirigeant.get("age", "")
         if not age_dirigeant:
@@ -443,7 +445,11 @@ def extract_company_info(company: dict, details: dict) -> dict:
         "_nom_entreprise_raw": nom,
         "_effectifs_finances": (
             company.get("effectifs_finances")
+            or details.get("effectifs_finances")
+            or details.get("tranche_effectif")
+            or company.get("tranche_effectif")
             or finances0.get("effectif")
+            or details.get("effectif")
         ),
         "_resultat_net": resultat_net,
     }
@@ -696,7 +702,7 @@ def main() -> None:
     print(f"{'═' * 60}")
 
     # 1. Recherche Pappers
-    companies_raw = search_pappers(args)
+    companies_raw, _ = search_pappers(args)
 
     if not companies_raw:
         print("\nAucune entreprise trouvée avec ces critères.")
