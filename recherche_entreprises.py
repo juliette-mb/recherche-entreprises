@@ -199,9 +199,15 @@ def normalize_datagouv_company(company_dg: dict) -> dict:
             "qualite": d.get("qualite", ""),
             "personne_morale": is_pm,
         }
-        dob = d.get("date_naissance", "")  # format "YYYY-MM"
+        # data.gouv.fr fournit date_naissance au format "YYYY-MM" (ou "YYYY-MM-DD")
+        # On calcule l'âge directement plutôt que de stocker la date brute
+        dob = d.get("date_naissance", "")
         if dob:
-            entry["date_de_naissance"] = dob
+            try:
+                birth_year = int(str(dob).split("-")[0])
+                entry["age"] = datetime.now().year - birth_year
+            except (ValueError, IndexError):
+                entry["date_de_naissance"] = dob  # fallback si format inattendu
         dirigeants.append(entry)
 
     # data.gouv.fr code NAF: "62.01Z" ; Pappers: "6201Z" → on normalise sans point
