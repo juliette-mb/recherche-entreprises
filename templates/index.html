@@ -1250,6 +1250,20 @@
       renderResults(getDisplayedResults());
     }
 
+    function _buildCountHtml(n, fetched, pTotal) {
+      // n        = résultats après filtres serveur
+      // fetched  = résultats bruts récupérés depuis Pappers
+      // pTotal   = total Pappers (toutes pages)
+      let html = `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
+      if (fetched > n) {
+        html += ` <span style="color:var(--gray-400);font-weight:400">(filtrés depuis ${fetched})</span>`;
+      }
+      if (pTotal > fetched) {
+        html += ` <span style="color:var(--gray-400);font-weight:400">· ${pTotal.toLocaleString('fr-FR')} sur Pappers</span>`;
+      }
+      return html;
+    }
+
     // ── Utilitaires UI ──────────────────────────────────────────────────────
     function show(id)  { document.getElementById(id).classList.add('visible'); }
     function hide(id)  { document.getElementById(id).classList.remove('visible'); }
@@ -1451,18 +1465,15 @@
         }
 
         currentResults = data.results || [];
-        window._pappersTotal = data.pappers_total || 0;
+        window._pappersTotal  = data.pappers_total  || 0;
+        window._fetchedCount  = data.fetched_count  || currentResults.length;
         _saveSearchState();
 
         if (currentResults.length === 0) {
           show('emptyState');
         } else {
-          const n = currentResults.length;
-          const pTotal = data.pappers_total || 0;
-          const countHtml = pTotal > n
-            ? `<strong>${n}</strong> / <strong>${pTotal.toLocaleString('fr-FR')}</strong> résultats`
-            : `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
-          document.getElementById('resultsCount').innerHTML = countHtml;
+          document.getElementById('resultsCount').innerHTML = _buildCountHtml(
+            currentResults.length, window._fetchedCount, window._pappersTotal);
           show('resultsHeader');
           renderTable();
           show('tableWrap');
@@ -1812,6 +1823,7 @@
         sessionStorage.setItem(SS_KEY, JSON.stringify({
           results: currentResults,
           pappersTotal: window._pappersTotal || 0,
+          fetchedCount: window._fetchedCount || currentResults.length,
           form: formState,
         }));
       } catch(e) {}
@@ -1838,11 +1850,9 @@
         // Restaurer les résultats
         currentResults = state.results;
         window._pappersTotal = state.pappersTotal || 0;
-        const n = currentResults.length;
-        const pTotal = window._pappersTotal;
-        document.getElementById('resultsCount').innerHTML = pTotal > n
-          ? `<strong>${n}</strong> / <strong>${pTotal.toLocaleString('fr-FR')}</strong> résultats`
-          : `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
+        window._fetchedCount = state.fetchedCount  || currentResults.length;
+        document.getElementById('resultsCount').innerHTML = _buildCountHtml(
+          currentResults.length, window._fetchedCount, window._pappersTotal);
         show('resultsHeader');
         renderTable();
         show('tableWrap');

@@ -304,11 +304,24 @@ def api_search():
         entreprise_cessee=not data.get("en_activite", True),
     )
 
+    # Si des filtres serveur sont actifs, on récupère plus de résultats bruts
+    # pour compenser les éliminations (ex: effectif max = 5 élimine beaucoup)
+    has_server_filters = any([
+        args.effectif_min, args.effectif_max,
+        args.resultat_net_min, args.resultat_net_max,
+        args.age_min_dirigeant,
+    ])
+    user_max = args.max_resultats
+    if has_server_filters:
+        args.max_resultats = min(user_max * 4, 80)
+
     # Recherche Pappers
     try:
         companies_raw, pappers_total = search_pappers(args)
     except Exception as e:
         return jsonify({"error": f"Erreur API Pappers : {str(e)}"}), 502
+
+    fetched_count = len(companies_raw)
 
     # Récupération des détails (representants, finances…)
     companies_info = []
@@ -317,13 +330,16 @@ def api_search():
         details = {}
         if siren:
             details = get_company_details(siren)
-            time.sleep(0.3)
+            time.sleep(0.2)
         companies_info.append(extract_company_info(company, details))
 
     # Filtres côté serveur
     companies_info = _filter_effectif(companies_info, args.effectif_min, args.effectif_max)
     companies_info = _filter_resultat_net(companies_info, args.resultat_net_min, args.resultat_net_max)
     companies_info = _filter_age_dirigeant(companies_info, args.age_min_dirigeant)
+
+    # Limiter au quota demandé par l'utilisateur
+    companies_info = companies_info[:user_max]
 
     # Nettoyage + ajout des données d'enrichissement Fullenrich
     clean = []
@@ -339,7 +355,12 @@ def api_search():
             }
         clean.append(row)
 
-    return jsonify({"results": clean, "total": len(clean), "pappers_total": pappers_total})
+    return jsonify({
+        "results": clean,
+        "total": len(clean),
+        "pappers_total": pappers_total,
+        "fetched_count": fetched_count,
+    })
 
 
 # ---------------------------------------------------------------------------
