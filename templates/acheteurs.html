@@ -95,7 +95,7 @@
 
     /* ── Table ── */
     .table-wrap { background: white; border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgb(0 0 0 / .04); overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: .8125rem; min-width: 900px; }
+    table { width: 100%; border-collapse: collapse; font-size: .8125rem; min-width: 1050px; }
     thead { background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
     th { padding: .75rem 1rem; text-align: left; font-size: .6875rem; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
     tbody tr { border-bottom: 1px solid var(--gray-100); transition: background .1s; }
@@ -115,10 +115,23 @@
     .s-signe     { background-color: var(--green-light); color: var(--green); border-color: #a7f3d0; }
 
     /* ── Contact cell ── */
-    .email-cell { font-size: .75rem; }
-    .email-cell a { color: var(--blue); text-decoration: none; display: block; }
-    .email-cell a:hover { text-decoration: underline; }
-    .call-link { display: inline-flex; align-items: center; gap: .25rem; margin-top: .2rem; color: var(--green) !important; font-weight: 500; }
+    .contact-cell { font-size: .75rem; }
+    .contact-cell a { color: var(--blue); text-decoration: none; display: block; }
+    .contact-cell a:hover { text-decoration: underline; }
+    .call-link { display: inline-flex; align-items: center; gap: .25rem; color: var(--green) !important; font-weight: 500; }
+
+    /* ── Filtres ── */
+    .filter-bar { display: flex; align-items: center; gap: .375rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filter-sep { width: 1px; height: 20px; background: var(--gray-200); margin: 0 .25rem; flex-shrink: 0; }
+    .filter-btn { padding: .3125rem .75rem; border-radius: 20px; border: 1.5px solid var(--gray-200); background: white; font-size: .75rem; font-weight: 500; font-family: inherit; color: var(--gray-500); cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .filter-btn:hover { border-color: var(--gray-300); color: var(--gray-700); }
+    .filter-btn.active { background: var(--blue); border-color: var(--blue); color: white; }
+    .filter-input { padding: .3rem .65rem; border: 1.5px solid var(--gray-200); border-radius: 20px; font-size: .75rem; font-family: inherit; color: var(--gray-700); outline: none; width: 160px; transition: border-color .15s; }
+    .filter-input:focus { border-color: var(--blue); }
+    .filter-input::placeholder { color: var(--gray-400); }
+
+    /* ── Mandat badge ── */
+    .mandat-badge { display: inline-flex; align-items: center; padding: .125rem .5rem; background: var(--green-light); border: 1px solid #a7f3d0; border-radius: 20px; font-size: .7rem; font-weight: 600; color: var(--green); }
 
     /* ── Notes (editable) ── */
     .notes-td { min-width: 140px; max-width: 200px; }
@@ -268,6 +281,20 @@
       <p>Ajoutez des contacts manuellement ou importez des entreprises.</p>
     </div>
 
+    <!-- Filtres -->
+    <div class="filter-bar" id="filterBar" style="display:none">
+      <button class="filter-btn active" id="fs-" onclick="setStatut('')">Tous</button>
+      <button class="filter-btn" id="fs-prospect" onclick="setStatut('prospect')">Prospect</button>
+      <button class="filter-btn" id="fs-contacté" onclick="setStatut('contacté')">Contacté</button>
+      <button class="filter-btn" id="fs-intéressé" onclick="setStatut('intéressé')">Intéressé</button>
+      <button class="filter-btn" id="fs-signé" onclick="setStatut('signé')">Signé</button>
+      <div class="filter-sep"></div>
+      <input class="filter-input" type="text" placeholder="Filtrer mandat…" oninput="setMandat(this.value)">
+      <div class="filter-sep"></div>
+      <button class="filter-btn" id="fe-email" onclick="toggleEmail()">Email connu</button>
+      <button class="filter-btn" id="fe-tel" onclick="toggleTel()">Numéro connu</button>
+    </div>
+
     <!-- Table -->
     <div class="table-wrap" id="tableWrap" style="display:none">
       <table>
@@ -276,7 +303,9 @@
             <th>Contact</th>
             <th>Entreprise</th>
             <th>Statut</th>
-            <th>Email / Téléphone</th>
+            <th>Mandat</th>
+            <th>Email</th>
+            <th>Téléphone</th>
             <th class="hide-mobile notes-td">Notes</th>
             <th>Actions</th>
           </tr>
@@ -365,6 +394,10 @@
 
   <script>
     let acheteurs = [];
+    let filterStatut = '';
+    let filterMandat = '';
+    let filterEmail  = false;
+    let filterTel    = false;
 
     // ── Utilitaires ─────────────────────────────────────────────────────────
     function esc(s) {
@@ -413,44 +446,82 @@
       }
     }
 
+    // ── Filtres ───────────────────────────────────────────────────────────────
+    function setStatut(statut) {
+      filterStatut = statut;
+      document.querySelectorAll('[id^="fs-"]').forEach(btn => {
+        btn.classList.toggle('active', btn.id === `fs-${statut}`);
+      });
+      renderTable();
+    }
+    function setMandat(val) {
+      filterMandat = val.trim().toLowerCase();
+      renderTable();
+    }
+    function toggleEmail() {
+      filterEmail = !filterEmail;
+      document.getElementById('fe-email').classList.toggle('active', filterEmail);
+      renderTable();
+    }
+    function toggleTel() {
+      filterTel = !filterTel;
+      document.getElementById('fe-tel').classList.toggle('active', filterTel);
+      renderTable();
+    }
+
     // ── Rendu ────────────────────────────────────────────────────────────────
     function renderTable() {
+      let list = acheteurs;
+      if (filterStatut) list = list.filter(a => a.statut === filterStatut);
+      if (filterMandat)  list = list.filter(a => (a.mandat || '').toLowerCase().includes(filterMandat));
+      if (filterEmail)   list = list.filter(a => a.email);
+      if (filterTel)     list = list.filter(a => a.telephone);
       const n = acheteurs.length;
       const badge = document.getElementById('countBadge');
-      badge.textContent = `${n} contact${n !== 1 ? 's' : ''}`;
+      badge.textContent = list.length < n
+        ? `${list.length} / ${n} contact${n !== 1 ? 's' : ''}`
+        : `${n} contact${n !== 1 ? 's' : ''}`;
       badge.style.display = n ? '' : 'none';
 
       if (!n) {
         document.getElementById('tableWrap').style.display = 'none';
+        document.getElementById('filterBar').style.display = 'none';
         document.getElementById('emptyState').classList.add('visible');
         return;
       }
 
       document.getElementById('emptyState').classList.remove('visible');
       document.getElementById('tableWrap').style.display = '';
+      document.getElementById('filterBar').style.display = '';
 
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
 
-      acheteurs.forEach(a => {
+      const phoneIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+
+      list.forEach(a => {
         const id = a.id;
 
-        // Contact (nom + titre)
         const nomComplet = [a.prenom, a.nom].filter(Boolean).join(' ');
         const contactHtml = nomComplet
           ? `<div class="td-contact"><strong>${esc(nomComplet)}</strong>${a.titre ? `<div class="titre">${esc(a.titre)}</div>` : ''}</div>`
           : `<span class="empty-cell">—</span>`;
 
-        // Entreprise
         const entrepriseHtml = a.entreprise
           ? `<strong>${esc(a.entreprise)}</strong>${a.secteurs_interet ? `<div class="td-contact"><span class="entreprise-sub">${esc(a.secteurs_interet)}</span></div>` : ''}`
           : '<span class="empty-cell">—</span>';
 
-        // Email / Tel
-        let emailTelHtml = '';
-        if (a.email) emailTelHtml += `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>`;
-        if (a.telephone) emailTelHtml += `<a href="tel:${esc(a.telephone)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(a.telephone)}</a>`;
-        if (!emailTelHtml) emailTelHtml = '<span class="empty-cell">—</span>';
+        const mandatHtml = a.statut === 'signé'
+          ? `<span class="mandat-badge">Oui</span>`
+          : '<span class="empty-cell">—</span>';
+
+        const emailHtml = a.email
+          ? `<a href="mailto:${esc(a.email)}" style="font-size:.75rem;color:var(--blue);text-decoration:none">${esc(a.email)}</a>`
+          : '<span class="empty-cell">—</span>';
+
+        const telHtml = a.telephone
+          ? `<a href="tel:${esc(a.telephone)}" class="call-link" style="font-size:.75rem">${phoneIcon}${esc(a.telephone)}</a>`
+          : '<span class="empty-cell">—</span>';
 
         const tr = document.createElement('tr');
         tr.id = `row-${id}`;
@@ -466,7 +537,19 @@
               <option value="signé"     ${a.statut==='signé'     ?'selected':''}>Signé</option>
             </select>
           </td>
-          <td class="email-cell" id="contact-${id}">${emailTelHtml}</td>
+          <td class="notes-td">
+            <div class="notes-cell"
+                 contenteditable="true"
+                 data-id="${id}"
+                 data-field="mandat"
+                 data-original="${esc(a.mandat || '')}"
+                 data-placeholder="Nom du mandat…"
+                 onblur="saveField(this)"
+                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}"
+            >${esc(a.mandat || '')}</div>
+          </td>
+          <td class="contact-cell" id="email-${id}">${emailHtml}</td>
+          <td class="contact-cell" id="tel-${id}">${telHtml}</td>
           <td class="hide-mobile notes-td">
             <div class="notes-cell"
                  contenteditable="true"
@@ -506,6 +589,10 @@
     async function saveStatut(id, sel) {
       const statut = sel.value;
       sel.className = `statut-select ${statutClass(statut)}`;
+      const mandatCell = document.getElementById(`mandat-${id}`);
+      if (mandatCell) mandatCell.innerHTML = statut === 'signé'
+        ? '<span class="mandat-badge">Oui</span>'
+        : '<span class="empty-cell">—</span>';
       try {
         const res = await fetch(`/api/acheteurs/${id}`, {
           method: 'PATCH',
@@ -520,25 +607,27 @@
       }
     }
 
-    // ── Notes ────────────────────────────────────────────────────────────────
-    async function saveNotes(el) {
-      const id = el.dataset.id;
-      const notes = el.textContent.trim();
-      if (notes === el.dataset.original) return;
-      el.dataset.original = notes;
+    // ── Notes / champs éditables ─────────────────────────────────────────────
+    async function saveField(el) {
+      const id    = el.dataset.id;
+      const field = el.dataset.field || 'notes';
+      const value = el.textContent.trim();
+      if (value === el.dataset.original) return;
+      el.dataset.original = value;
       try {
         const res = await fetch(`/api/acheteurs/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notes }),
+          body: JSON.stringify({ [field]: value }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
         const a = acheteurs.find(x => x.id === id);
-        if (a) a.notes = notes;
+        if (a) a[field] = value;
       } catch(e) {
-        showError('Erreur sauvegarde notes : ' + e.message);
+        showError(`Erreur sauvegarde : ${e.message}`);
       }
     }
+    function saveNotes(el) { return saveField(el); }
 
     // ── Enrich ───────────────────────────────────────────────────────────────
     function closeAllEnrichMenus(e) {
@@ -575,14 +664,15 @@
           if (data.telephone) a.telephone = data.telephone;
         }
 
-        const contactCell = document.getElementById(`contact-${id}`);
-        let html = '';
         const email = data.email || (a && a.email);
         const tel   = data.telephone || (a && a.telephone);
-        if (email) html += `<a href="mailto:${esc(email)}">${esc(email)}</a>`;
-        if (tel)   html += `<a href="tel:${esc(tel)}" class="call-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(tel)}</a>`;
-        if (!html) html = '<span class="empty-cell">—</span>';
-        contactCell.innerHTML = html;
+        const phoneIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+        document.getElementById(`email-${id}`).innerHTML = email
+          ? `<a href="mailto:${esc(email)}" style="font-size:.75rem;color:var(--blue);text-decoration:none">${esc(email)}</a>`
+          : '<span class="empty-cell">—</span>';
+        document.getElementById(`tel-${id}`).innerHTML = tel
+          ? `<a href="tel:${esc(tel)}" class="call-link" style="font-size:.75rem">${phoneIcon}${esc(tel)}</a>`
+          : '<span class="empty-cell">—</span>';
 
         const found = (email || tel) ? 1 : 0;
         showToast(found
