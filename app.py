@@ -42,6 +42,7 @@ from recherche_entreprises import (
     _fullenrich_key,
     extract_company_info,
     get_company_details,
+    search_datagouv,
     search_pappers,
 )
 
@@ -216,6 +217,31 @@ def _filter_effectif(companies, min_val, max_val):
     return result
 
 
+def _filter_ca(companies, ca_min, ca_max):
+    """Filtre côté serveur sur chiffre_affaires.
+    Nécessaire quand la source est data.gouv.fr (pas de filtre CA natif).
+    Inclut les entreprises sans CA connu.
+    """
+    if ca_min is None and ca_max is None:
+        return companies
+    result = []
+    for c in companies:
+        val = c.get("chiffre_affaires")
+        if not val:
+            result.append(c)
+            continue
+        try:
+            n = int(val)
+            if ca_min is not None and n < ca_min:
+                continue
+            if ca_max is not None and n > ca_max:
+                continue
+            result.append(c)
+        except (TypeError, ValueError):
+            result.append(c)
+    return result
+
+
 def _filter_age_dirigeant(companies, min_age):
     """Filtre côté serveur sur age_dirigeant. Inclut les entreprises sans âge connu."""
     if min_age is None:
@@ -304,48 +330,68 @@ def api_search():
         entreprise_cessee=not data.get("en_activite", True),
     )
 
-    # Si des filtres serveur sont actifs, on récupère plus de résultats bruts
-    # pour compenser les éliminations (ex: effectif max = 5 élimine beaucoup)
+    # Si des filtres serveur sont actifs, récupérer plus de résultats bruts
+    # (data.gouv.fr ne filtre pas par CA/âge/effectif/résultat)
+    user_max = args.max_resultats
     has_server_filters = any([
         args.effectif_min, args.effectif_max,
         args.resultat_net_min, args.resultat_net_max,
         args.age_min_dirigeant,
+        args.ca_min, args.ca_max,  # server-side pour data.gouv.fr
     ])
-    user_max = args.max_resultats
     if has_server_filters:
         args.max_resultats = min(user_max * 4, 80)
 
-    # Recherche Pappers
+    # ── Waterfall : data.gouv.fr d'abord, Pappers en fallback ──────────────
+    source = "data.gouv.fr"
+    pappers_search_calls = 0
+    total_count = 0
+    companies_raw: list[dict] = []
+
     try:
-        companies_raw, pappers_total = search_pappers(args)
+        companies_raw, total_count = search_datagouv(args)
     except Exception as e:
-        return jsonify({"error": f"Erreur API Pappers : {str(e)}"}), 502
+        print(f"  data.gouv.fr indisponible : {e}", flush=True)
+        companies_raw = []
+
+    if not companies_raw:
+        print("  fallback Pappers activé", flush=True)
+        source = "Pappers (fallback)"
+        pappers_search_calls = 1
+        try:
+            companies_raw, total_count = search_pappers(args)
+        except Exception as e:
+            return jsonify({"error": f"Erreur API Pappers : {str(e)}"}), 502
 
     fetched_count = len(companies_raw)
 
-    # Récupération des détails (representants, finances…)
+    # ── Détails Pappers /entreprise pour chaque résultat ───────────────────
+    pappers_detail_calls = 0
     companies_info = []
     for company in companies_raw:
         siren = company.get("siren", "")
         details = {}
         if siren:
             details = get_company_details(siren)
+            pappers_detail_calls += 1
             time.sleep(0.2)
-        companies_info.append(extract_company_info(company, details))
+        info = extract_company_info(company, details)
+        info["source"] = source
+        companies_info.append(info)
 
-    # Filtres côté serveur
+    # ── Filtres côté serveur ───────────────────────────────────────────────
+    companies_info = _filter_ca(companies_info, args.ca_min, args.ca_max)
     companies_info = _filter_effectif(companies_info, args.effectif_min, args.effectif_max)
     companies_info = _filter_resultat_net(companies_info, args.resultat_net_min, args.resultat_net_max)
     companies_info = _filter_age_dirigeant(companies_info, args.age_min_dirigeant)
-
-    # Limiter au quota demandé par l'utilisateur
     companies_info = companies_info[:user_max]
 
-    # Nettoyage + ajout des données d'enrichissement Fullenrich
+    pappers_calls_total = pappers_search_calls + pappers_detail_calls
+
+    # ── Nettoyage + données Fullenrich ─────────────────────────────────────
     clean = []
     for c in companies_info:
         row = {k: v for k, v in c.items() if not k.startswith("_")}
-        # Inclure les données nécessaires à Fullenrich (non affichées dans le tableau)
         if c.get("_prenom") or c.get("_nom"):
             row["_enrich"] = {
                 "prenom": c.get("_prenom", ""),
@@ -358,8 +404,10 @@ def api_search():
     return jsonify({
         "results": clean,
         "total": len(clean),
-        "pappers_total": pappers_total,
+        "pappers_total": total_count,
         "fetched_count": fetched_count,
+        "source": source,
+        "pappers_calls": pappers_calls_total,
     })
 
 

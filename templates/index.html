@@ -1250,16 +1250,22 @@
       renderResults(getDisplayedResults());
     }
 
-    function _buildCountHtml(n, fetched, pTotal) {
-      // n        = résultats après filtres serveur
-      // fetched  = résultats bruts récupérés depuis Pappers
-      // pTotal   = total Pappers (toutes pages)
+    function _buildCountHtml(n, fetched, pTotal, source, pappersCallsN) {
       let html = `<strong>${n}</strong> résultat${n > 1 ? 's' : ''}`;
       if (fetched > n) {
         html += ` <span style="color:var(--gray-400);font-weight:400">(filtrés depuis ${fetched})</span>`;
       }
       if (pTotal > fetched) {
-        html += ` <span style="color:var(--gray-400);font-weight:400">· ${pTotal.toLocaleString('fr-FR')} sur Pappers</span>`;
+        html += ` <span style="color:var(--gray-400);font-weight:400">· ${pTotal.toLocaleString('fr-FR')} au total</span>`;
+      }
+      // Badge source
+      const isDg = source === 'data.gouv.fr';
+      const badgeColor = isDg ? '#059669' : '#d97706';
+      const badgeBg   = isDg ? '#ecfdf5'  : '#fffbeb';
+      html += ` <span style="display:inline-block;padding:.1rem .45rem;border-radius:4px;font-size:.7rem;font-weight:600;color:${badgeColor};background:${badgeBg};margin-left:.25rem">${source || 'data.gouv.fr'}</span>`;
+      // Compteur Pappers
+      if (pappersCallsN) {
+        html += ` <span style="color:var(--gray-400);font-size:.75rem;font-weight:400">· ${pappersCallsN} appel${pappersCallsN > 1 ? 's' : ''} Pappers</span>`;
       }
       return html;
     }
@@ -1467,13 +1473,16 @@
         currentResults = data.results || [];
         window._pappersTotal  = data.pappers_total  || 0;
         window._fetchedCount  = data.fetched_count  || currentResults.length;
+        window._source        = data.source         || 'data.gouv.fr';
+        window._pappersCallsN = data.pappers_calls  || 0;
         _saveSearchState();
 
         if (currentResults.length === 0) {
           show('emptyState');
         } else {
           document.getElementById('resultsCount').innerHTML = _buildCountHtml(
-            currentResults.length, window._fetchedCount, window._pappersTotal);
+            currentResults.length, window._fetchedCount, window._pappersTotal,
+            window._source, window._pappersCallsN);
           show('resultsHeader');
           renderTable();
           show('tableWrap');
@@ -1824,6 +1833,8 @@
           results: currentResults,
           pappersTotal: window._pappersTotal || 0,
           fetchedCount: window._fetchedCount || currentResults.length,
+          source: window._source || 'data.gouv.fr',
+          pappersCallsN: window._pappersCallsN || 0,
           form: formState,
         }));
       } catch(e) {}
@@ -1849,10 +1860,13 @@
 
         // Restaurer les résultats
         currentResults = state.results;
-        window._pappersTotal = state.pappersTotal || 0;
-        window._fetchedCount = state.fetchedCount  || currentResults.length;
+        window._pappersTotal  = state.pappersTotal  || 0;
+        window._fetchedCount  = state.fetchedCount  || currentResults.length;
+        window._source        = state.source        || 'data.gouv.fr';
+        window._pappersCallsN = state.pappersCallsN || 0;
         document.getElementById('resultsCount').innerHTML = _buildCountHtml(
-          currentResults.length, window._fetchedCount, window._pappersTotal);
+          currentResults.length, window._fetchedCount, window._pappersTotal,
+          window._source, window._pappersCallsN);
         show('resultsHeader');
         renderTable();
         show('tableWrap');

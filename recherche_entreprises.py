@@ -90,7 +90,8 @@ def _fullenrich_key() -> str:
 # ---------------------------------------------------------------------------
 # URLs de base
 # ---------------------------------------------------------------------------
-PAPPERS_BASE_URL = "https://api.pappers.fr/v2"
+PAPPERS_BASE_URL   = "https://api.pappers.fr/v2"
+DATAGOUV_BASE_URL  = "https://recherche-entreprises.api.gouv.fr/search"
 FULLENRICH_BASE_URL = "https://app.fullenrich.com/api/v2"
 
 # ---------------------------------------------------------------------------
@@ -175,6 +176,150 @@ Exemples :
         help="Chemin du fichier CSV de sortie (défaut: resultats/resultats_YYYYMMDD_HHMMSS.csv)",
     )
     return parser.parse_args()
+
+
+# ---------------------------------------------------------------------------
+# data.gouv.fr — Recherche (source principale, gratuite)
+# ---------------------------------------------------------------------------
+def normalize_datagouv_company(company_dg: dict) -> dict:
+    """
+    Normalise un résultat data.gouv.fr au format attendu par extract_company_info.
+    Le champ siege utilise 'adresse_ligne_1' (full string) car data.gouv.fr ne
+    découpe pas l'adresse comme Pappers.
+    """
+    siege_dg = company_dg.get("siege") or {}
+
+    dirigeants = []
+    for d in (company_dg.get("dirigeants") or []):
+        is_pm = bool(d.get("denomination"))
+        entry = {
+            "nom": d.get("nom") or d.get("denomination") or "",
+            # data.gouv.fr: "prenoms" (pluriel) ; Pappers: "prenom"
+            "prenom": d.get("prenoms", ""),
+            "qualite": d.get("qualite", ""),
+            "personne_morale": is_pm,
+        }
+        dob = d.get("date_naissance", "")  # format "YYYY-MM"
+        if dob:
+            entry["date_de_naissance"] = dob
+        dirigeants.append(entry)
+
+    # data.gouv.fr code NAF: "62.01Z" ; Pappers: "6201Z" → on normalise sans point
+    naf = (company_dg.get("activite_principale") or "").replace(".", "").upper()
+
+    return {
+        "nom_entreprise": company_dg.get("nom_complet", ""),
+        "siren": company_dg.get("siren", ""),
+        "code_naf": naf,
+        "libelle_code_naf": "",          # non disponible dans la recherche
+        "chiffre_affaires": None,        # non disponible → viendra de Pappers /entreprise
+        "effectifs_finances": None,
+        "tranche_effectif": company_dg.get("tranche_effectif_salarie", ""),
+        "siege": {
+            # full address string → extract_company_info utilisera adresse_ligne_1
+            "adresse_ligne_1": siege_dg.get("adresse", ""),
+            "ville": siege_dg.get("commune", ""),
+            "code_postal": siege_dg.get("code_postal", ""),
+        },
+        "dirigeants": dirigeants,
+    }
+
+
+def search_datagouv(args) -> tuple[list[dict], int]:
+    """
+    Interroge l'API data.gouv.fr (gratuite, sans authentification).
+    Retourne (companies_normalized, total) où chaque company est au format
+    compatible avec extract_company_info.
+    Paramètres supportés : secteur/NAF, région, département, nom_entreprise,
+    nom_dirigeant, état administratif, forme juridique.
+    """
+    print("\nRecherche data.gouv.fr en cours...")
+
+    params: dict = {}
+    secteur = getattr(args, 'secteur', '') or ''
+    is_naf = bool(secteur) and bool(re.match(r"^\d{4}[A-Za-z]$", secteur.strip()))
+
+    q_parts: list[str] = []
+
+    nom_entreprise = getattr(args, 'nom_entreprise', None)
+    if nom_entreprise:
+        q_parts.append(nom_entreprise.strip())
+
+    if secteur:
+        if is_naf:
+            # Convertir "8610Z" → "86.10Z" (format data.gouv.fr)
+            naf = secteur.strip().upper()
+            naf_dot = naf[:2] + "." + naf[2:4] + naf[4] if len(naf) == 5 else naf
+            params["activite_principale"] = naf_dot
+        else:
+            q_parts.append(secteur.strip())
+
+    ville = getattr(args, 'ville', None)
+    if ville:
+        q_parts.append(ville.strip())
+
+    nom_dirigeant = getattr(args, 'nom_dirigeant', None)
+    if nom_dirigeant:
+        q_parts.append(nom_dirigeant.strip())
+
+    prenom_dirigeant = getattr(args, 'prenom_dirigeant', None)
+    if prenom_dirigeant:
+        q_parts.append(prenom_dirigeant.strip())
+
+    if q_parts:
+        params["q"] = " ".join(q_parts)
+
+    region = getattr(args, 'region', None)
+    if region:
+        params["region"] = region_to_code(region)
+
+    departement = getattr(args, 'departement', None)
+    if departement:
+        params["departement"] = departement.strip()
+
+    entreprise_cessee = getattr(args, 'entreprise_cessee', False)
+    params["etat_administratif"] = "C" if entreprise_cessee else "A"
+
+    categorie_juridique = getattr(args, 'categorie_juridique', None)
+    if categorie_juridique:
+        params["nature_juridique"] = categorie_juridique
+
+    max_resultats = args.max_resultats
+    per_page = min(25, max_resultats)  # data.gouv.fr limite à 25 par page
+
+    companies: list[dict] = []
+    total: int = 0
+    page = 1
+
+    while len(companies) < max_resultats:
+        params["per_page"] = per_page
+        params["page"] = page
+
+        try:
+            resp = requests.get(DATAGOUV_BASE_URL, params=params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.exceptions.RequestException as e:
+            print(f"  Erreur data.gouv.fr : {e}")
+            break
+
+        if page == 1:
+            total = data.get("total_results", 0)
+            print(f"  data.gouv.fr : {total} entreprise(s) trouvée(s)")
+
+        results = data.get("results", [])
+        if not results:
+            break
+
+        companies.extend([normalize_datagouv_company(c) for c in results])
+
+        if len(companies) >= max_resultats or len(results) < per_page:
+            break
+
+        page += 1
+        time.sleep(0.1)
+
+    return companies[:max_resultats], total
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +474,9 @@ def extract_company_info(company: dict, details: dict) -> dict:
         if siege.get(f)
     ]
     adresse_ligne = " ".join(adresse_parts)
+    # Fallback pour data.gouv.fr qui fournit l'adresse complète en un seul champ
+    if not adresse_ligne:
+        adresse_ligne = siege.get("adresse_ligne_1") or siege.get("adresse") or ""
     complement = siege.get("complement_adresse", "")
     if complement:
         adresse_ligne = f"{complement}, {adresse_ligne}".strip(", ")
