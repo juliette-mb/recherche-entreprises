@@ -213,12 +213,24 @@ def normalize_datagouv_company(company_dg: dict) -> dict:
     # data.gouv.fr code NAF: "62.01Z" ; Pappers: "6201Z" → on normalise sans point
     naf = (company_dg.get("activite_principale") or "").replace(".", "").upper()
 
+    # Finances : {"2022": {"ca": 500000, "resultat_net": 30000}, ...}
+    # On prend l'année la plus récente disponible
+    ca = None
+    resultat_net = None
+    finances_raw = company_dg.get("finances") or {}
+    if finances_raw and isinstance(finances_raw, dict):
+        latest_year = max(finances_raw.keys())
+        year_data = finances_raw[latest_year]
+        ca = year_data.get("ca")
+        resultat_net = year_data.get("resultat_net")
+
     return {
         "nom_entreprise": company_dg.get("nom_complet", ""),
         "siren": company_dg.get("siren", ""),
         "code_naf": naf,
-        "libelle_code_naf": "",          # non disponible dans la recherche
-        "chiffre_affaires": None,        # non disponible → viendra de Pappers /entreprise
+        "libelle_code_naf": company_dg.get("libelle_activite_principale", ""),
+        "chiffre_affaires": ca,
+        "resultat_net": resultat_net,
         "effectifs_finances": None,
         "tranche_effectif": company_dg.get("tranche_effectif_salarie", ""),
         "siege": {
@@ -491,15 +503,19 @@ def extract_company_info(company: dict, details: dict) -> dict:
     adresse = ", ".join(filter(None, [adresse_ligne, f"{code_postal} {ville}".strip()]))
 
     # --- Finances ---
-    # La recherche expose directement chiffre_affaires à la racine ; le détail
-    # le met dans finances[0]. On prend la valeur la plus riche disponible.
+    # data.gouv.fr expose ca/resultat_net à la racine (via normalize_datagouv_company) ;
+    # Pappers les met dans finances[0]. On prend la valeur la plus riche disponible.
     finances0 = (details.get("finances") or [{}])[0]
     ca = (
         company.get("chiffre_affaires")
         or finances0.get("chiffre_affaires")
         or ""
     )
-    resultat_net = finances0.get("resultat") if finances0 else None
+    resultat_net = (
+        company.get("resultat_net")
+        if company.get("resultat_net") is not None
+        else (finances0.get("resultat") if finances0 else None)
+    )
     secteur = (
         company.get("libelle_code_naf")
         or details.get("libelle_code_naf")

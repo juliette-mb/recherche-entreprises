@@ -363,13 +363,14 @@ def api_search():
 
     fetched_count = len(companies_raw)
 
-    # ── Détails Pappers /entreprise pour chaque résultat ───────────────────
+    # ── Détails Pappers /entreprise (uniquement en mode Pappers) ───────────
+    # En mode data.gouv.fr, CA/résultat/secteur sont déjà dans le résultat normalisé
     pappers_detail_calls = 0
     companies_info = []
     for company in companies_raw:
         siren = company.get("siren", "")
         details = {}
-        if siren:
+        if siren and use_pappers:
             details = get_company_details(siren)
             pappers_detail_calls += 1
             time.sleep(0.2)
