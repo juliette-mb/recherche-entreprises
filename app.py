@@ -357,15 +357,32 @@ def _do_fullenrich_enrich(contacts: list[dict], enrich_type: str = "both") -> di
     # Construction du payload
     payload_data = []
     for c in contacts:
+        first_name   = (c.get("prenom")       or "").strip()
+        last_name    = (c.get("nom")           or "").strip()
+        domain       = (c.get("domain")        or "").strip()
+        company_name = (c.get("company_name")  or "").strip()
+
+        # Fullenrich exige first_name ET last_name non vides
+        if not first_name and not last_name:
+            raise ValueError("Prénom et nom requis pour l'enrichissement (contact sans nom renseigné).")
+        if not first_name:
+            first_name = last_name
+        if not last_name:
+            last_name = first_name
+
+        # Fullenrich exige domain OU company_name
+        if not domain and not company_name:
+            raise ValueError("Domaine ou nom d'entreprise requis pour l'enrichissement Fullenrich.")
+
         entry: dict = {
-            "first_name": c.get("prenom", ""),
-            "last_name": c.get("nom", ""),
+            "first_name":    first_name,
+            "last_name":     last_name,
             "enrich_fields": enrich_fields,
         }
-        if c.get("domain"):
-            entry["domain"] = c["domain"]
-        elif c.get("company_name"):
-            entry["company_name"] = c["company_name"]
+        if domain:
+            entry["domain"] = domain
+        else:
+            entry["company_name"] = company_name
         payload_data.append(entry)
 
     # Soumission
@@ -630,6 +647,96 @@ def api_vendeurs_enrich(vid):
         "telephone":    update.get("telephone", ""),
         "credits_used": result.get("credits_used", 0),
     })
+
+
+# ---------------------------------------------------------------------------
+# Page Contacts (Fullenrich Search)
+# ---------------------------------------------------------------------------
+
+
+@app.route("/contacts")
+@login_required
+def contacts_page():
+    return render_template("contacts.html")
+
+
+@app.route("/api/contacts/search", methods=["POST"])
+@login_required
+def api_contacts_search():
+    data = request.get_json(silent=True) or {}
+
+    def _filters(raw, exact=False):
+        """Convertit une chaîne (séparée par virgules/sauts de ligne) en [{value, exact_match, exclude}]."""
+        if not raw:
+            return None
+        cleaned = str(raw).replace(",", "\n")
+        items = [v.strip() for v in cleaned.split("\n") if v.strip()]
+        if not items:
+            return None
+        return [{"value": v, "exact_match": exact, "exclude": False} for v in items]
+
+    payload = {}
+
+    if data.get("company_names"):
+        f = _filters(data["company_names"])
+        if f:
+            payload["current_company_names"] = f
+
+    if data.get("company_domains"):
+        f = _filters(data["company_domains"])
+        if f:
+            payload["current_company_domains"] = f
+
+    if data.get("position_titles"):
+        f = _filters(data["position_titles"])
+        if f:
+            payload["current_position_titles"] = f
+
+    if data.get("seniority_levels"):
+        levels = data["seniority_levels"] if isinstance(data["seniority_levels"], list) else [data["seniority_levels"]]
+        levels = [lv for lv in levels if lv]
+        if levels:
+            payload["current_position_seniority_level"] = [
+                {"value": lv, "exact_match": True, "exclude": False} for lv in levels
+            ]
+
+    if data.get("location"):
+        f = _filters(data["location"])
+        if f:
+            payload["person_locations"] = f
+
+    if data.get("industry"):
+        f = _filters(data["industry"])
+        if f:
+            payload["current_company_industries"] = f
+
+    payload["limit"] = min(_int(data.get("limit")) or 20, 100)
+    payload["offset"] = _int(data.get("offset")) or 0
+
+    # Au moins un filtre substantiel requis
+    if not any(payload.get(k) for k in (
+        "current_company_names", "current_company_domains",
+        "current_position_titles", "person_names",
+    )):
+        return jsonify({"error": "Renseignez au moins un nom d'entreprise, un domaine ou un titre de poste."}), 400
+
+    try:
+        resp = requests.post(
+            f"{FULLENRICH_BASE_URL}/people/search",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {_fullenrich_key()}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except requests.exceptions.HTTPError as e:
+        body = e.response.text[:300] if e.response else ""
+        return jsonify({"error": f"Erreur Fullenrich ({e.response.status_code}) : {body}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
 
 
 # ---------------------------------------------------------------------------
