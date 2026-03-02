@@ -383,6 +383,9 @@ def _do_fullenrich_enrich(contacts: list[dict], enrich_type: str = "both") -> di
             entry["domain"] = domain
         else:
             entry["company_name"] = company_name
+        linkedin_url = (c.get("linkedin_url") or "").strip()
+        if linkedin_url:
+            entry["linkedin_url"] = linkedin_url
         payload_data.append(entry)
 
     # Soumission

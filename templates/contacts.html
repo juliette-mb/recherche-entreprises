@@ -557,6 +557,7 @@
         tr.dataset.company   = company.name   || '';
         tr.dataset.domain    = company.domain || '';
         tr.dataset.fullName  = p.full_name || '';
+        tr.dataset.linkedin  = p.social_profiles?.linkedin?.url || '';
 
         tr.innerHTML = `
           <td>${nameHtml}</td>
@@ -625,6 +626,7 @@
         nom:          row?.dataset.lastName  || '',
         domain:       row?.dataset.domain    || '',
         company_name: row?.dataset.company   || '',
+        linkedin_url: row?.dataset.linkedin  || '',
       }];
 
       try {
