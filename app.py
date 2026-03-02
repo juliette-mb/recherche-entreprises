@@ -677,6 +677,13 @@ def api_contacts_search():
 
     payload = {}
 
+    # Nom / prénom → person_names
+    firstname = (data.get("firstname") or "").strip()
+    lastname  = (data.get("lastname")  or "").strip()
+    if firstname or lastname:
+        name_value = " ".join(filter(None, [firstname, lastname]))
+        payload["person_names"] = [{"value": name_value, "exact_match": False, "exclude": False}]
+
     if data.get("company_names"):
         f = _filters(data["company_names"])
         if f:
@@ -717,6 +724,7 @@ def api_contacts_search():
     if not any(payload.get(k) for k in (
         "current_company_names", "current_company_domains",
         "current_position_titles", "person_names",
+        "current_position_seniority_level", "person_locations",
     )):
         return jsonify({"error": "Renseignez au moins un nom d'entreprise, un domaine ou un titre de poste."}), 400
 

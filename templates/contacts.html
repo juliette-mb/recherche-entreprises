@@ -224,6 +224,16 @@
           <textarea id="f-companies" placeholder="BNP Paribas&#10;Vinci SA&#10;Schneider Electric" rows="3"></textarea>
         </div>
 
+        <!-- Nom / Prénom -->
+        <div class="field-group">
+          <label class="field-label">Prénom</label>
+          <input type="text" id="f-firstname" placeholder="Jean">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Nom</label>
+          <input type="text" id="f-lastname" placeholder="Dupont">
+        </div>
+
         <!-- Titres de poste -->
         <div class="field-group full">
           <label class="field-label">Titres de poste</label>
@@ -399,6 +409,8 @@
 
     // ── Construction du payload ──────────────────────────────────────────────
     function buildPayload(offset = 0) {
+      const firstname = document.getElementById('f-firstname').value.trim();
+      const lastname  = document.getElementById('f-lastname').value.trim();
       const companies = document.getElementById('f-companies').value.trim();
       const titles    = document.getElementById('f-titles').value.trim();
       const location  = document.getElementById('f-location').value.trim();
@@ -412,6 +424,8 @@
       });
 
       return {
+        firstname:        firstname,
+        lastname:         lastname,
         company_names:    companies,
         position_titles:  titles,
         seniority_levels: seniority,
@@ -705,6 +719,8 @@
 
     // ── Reset ────────────────────────────────────────────────────────────────
     function resetForm() {
+      document.getElementById('f-firstname').value = '';
+      document.getElementById('f-lastname').value = '';
       document.getElementById('f-companies').value = '';
       document.getElementById('f-titles').value = '';
       document.getElementById('f-location').value = '';
@@ -730,6 +746,8 @@
 
     function _saveState() {
       const form = {
+        firstname: document.getElementById('f-firstname').value,
+        lastname:  document.getElementById('f-lastname').value,
         companies: document.getElementById('f-companies').value,
         titles:    document.getElementById('f-titles').value,
         location:  document.getElementById('f-location').value,
@@ -752,6 +770,8 @@
 
         // Restaurer le formulaire
         const f = state.form || {};
+        if (f.firstname) document.getElementById('f-firstname').value = f.firstname;
+        if (f.lastname)  document.getElementById('f-lastname').value  = f.lastname;
         if (f.companies) document.getElementById('f-companies').value = f.companies;
         if (f.titles)    document.getElementById('f-titles').value    = f.titles;
         if (f.location)  document.getElementById('f-location').value  = f.location;
