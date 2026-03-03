@@ -318,6 +318,22 @@ def search_datagouv(args) -> tuple[list[dict], int]:
     if categorie_juridique:
         params["nature_juridique"] = categorie_juridique
 
+    # Filtres financiers natifs
+    # Note : data.gouv.fr ne retourne que les entreprises AVEC données financières.
+    # Comportement identique au site annuaire-entreprises.data.gouv.fr.
+    ca_min = getattr(args, 'ca_min', None)
+    if ca_min:
+        params["ca_min"] = ca_min
+    ca_max = getattr(args, 'ca_max', None)
+    if ca_max:
+        params["ca_max"] = ca_max
+    rn_min = getattr(args, 'resultat_net_min', None)
+    if rn_min:
+        params["resultat_net_min"] = rn_min
+    rn_max = getattr(args, 'resultat_net_max', None)
+    if rn_max:
+        params["resultat_net_max"] = rn_max
+
     # Âge dirigeant → date de naissance max
     age_min = getattr(args, 'age_min_dirigeant', None)
     if age_min:

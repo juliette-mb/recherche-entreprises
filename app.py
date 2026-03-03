@@ -344,13 +344,9 @@ def api_search():
             args.ca_min, args.ca_max,
         ])
     else:
-        # data.gouv.fr : finances nulles pour beaucoup d'entreprises → CA/résultat
-        # filtrés côté serveur (filtre natif exclurait trop de résultats sans données)
-        has_server_filters = any([
-            args.effectif_min, args.effectif_max,
-            args.ca_min, args.ca_max,
-            args.resultat_net_min, args.resultat_net_max,
-        ])
+        # data.gouv.fr : CA/résultat filtrés nativement (comme annuaire-entreprises.data.gouv.fr)
+        # Seul l'effectif reste côté serveur (conversion tranche ↔ min/max)
+        has_server_filters = any([args.effectif_min, args.effectif_max])
     if has_server_filters:
         args.max_resultats = min(user_max * 4, 80)
 
