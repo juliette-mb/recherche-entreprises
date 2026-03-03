@@ -93,6 +93,18 @@ def _fullenrich_key() -> str:
 PAPPERS_BASE_URL   = "https://api.pappers.fr/v2"
 DATAGOUV_BASE_URL  = "https://recherche-entreprises.api.gouv.fr/search"
 
+# Section activité principale → label lisible (data.gouv.fr ne retourne pas libelle_activite_principale)
+_SECTION_LABEL: dict[str, str] = {
+    "A": "Agriculture", "B": "Industries extractives", "C": "Industrie manufacturière",
+    "D": "Énergie", "E": "Eau et déchets", "F": "Construction",
+    "G": "Commerce / Réparation auto", "H": "Transports", "I": "Hôtellerie / Restauration",
+    "J": "Information / Communication", "K": "Finance / Assurance", "L": "Immobilier",
+    "M": "Activités spécialisées / Scientifiques", "N": "Services administratifs",
+    "O": "Administration publique", "P": "Enseignement", "Q": "Santé / Action sociale",
+    "R": "Arts / Spectacles", "S": "Autres services", "T": "Ménages employeurs",
+    "U": "Activités extra-territoriales",
+}
+
 # Codes INSEE tranche effectif → label lisible (commun data.gouv.fr et Pappers)
 _DATAGOUV_TRANCHE_LABEL: dict[str, str] = {
     "NN": "0 salarié",
@@ -211,30 +223,35 @@ def normalize_datagouv_company(company_dg: dict) -> dict:
 
     dirigeants = []
     for d in (company_dg.get("dirigeants") or []):
-        is_pm = bool(d.get("denomination"))
+        # Utiliser type_dirigeant (plus fiable que tester la présence de "denomination")
+        is_pm = d.get("type_dirigeant") == "personne morale"
         entry = {
             "nom": d.get("nom") or d.get("denomination") or "",
-            # data.gouv.fr: "prenoms" (pluriel) ; Pappers: "prenom"
             "prenom": d.get("prenoms", ""),
             "qualite": d.get("qualite", ""),
             "personne_morale": is_pm,
         }
-        # data.gouv.fr fournit date_naissance au format "YYYY-MM" (ou "YYYY-MM-DD")
-        # On calcule l'âge directement plutôt que de stocker la date brute
-        dob = d.get("date_naissance", "")
-        if dob:
-            try:
-                birth_year = int(str(dob).split("-")[0])
-                entry["age"] = datetime.now().year - birth_year
-            except (ValueError, IndexError):
-                entry["date_de_naissance"] = dob  # fallback si format inattendu
+        if not is_pm:
+            # annee_de_naissance est directement disponible (plus fiable que parser date_naissance)
+            annee = d.get("annee_de_naissance") or ""
+            if annee:
+                try:
+                    entry["age"] = datetime.now().year - int(annee)
+                except (ValueError, TypeError):
+                    pass
         dirigeants.append(entry)
 
     # data.gouv.fr code NAF: "62.01Z" ; Pappers: "6201Z" → on normalise sans point
     naf = (company_dg.get("activite_principale") or "").replace(".", "").upper()
 
+    # Secteur : libelle_activite_principale n'existe pas dans l'API.
+    # On reconstruit depuis section_activite_principale + code NAF.
+    section = company_dg.get("section_activite_principale") or ""
+    section_label = _SECTION_LABEL.get(section, "")
+    naf_display = company_dg.get("activite_principale") or ""  # avec le point ex "43.22A"
+    secteur_label = f"{section_label} ({naf_display})" if section_label and naf_display else (section_label or naf_display)
+
     # Finances : {"2022": {"ca": 500000, "resultat_net": 30000}, ...}
-    # On prend l'année la plus récente disponible
     ca = None
     resultat_net = None
     finances_raw = company_dg.get("finances") or {}
@@ -251,16 +268,15 @@ def normalize_datagouv_company(company_dg: dict) -> dict:
         "nom_entreprise": company_dg.get("nom_complet", ""),
         "siren": company_dg.get("siren", ""),
         "code_naf": naf,
-        "libelle_code_naf": company_dg.get("libelle_activite_principale", ""),
+        "libelle_code_naf": secteur_label,   # ex: "Construction (43.22A)"
         "chiffre_affaires": ca,
         "resultat_net": resultat_net,
         "effectifs_finances": None,
-        "tranche_effectif": tranche_code,   # code brut pour _parse_effectif
+        "tranche_effectif": tranche_code,    # code brut pour _parse_effectif
         "effectif": tranche_label,           # label lisible pour affichage
         "siege": {
-            # full address string → extract_company_info utilisera adresse_ligne_1
             "adresse_ligne_1": siege_dg.get("adresse", ""),
-            "ville": siege_dg.get("commune", ""),
+            "ville": siege_dg.get("libelle_commune", ""),   # libelle_commune, pas commune (code INSEE)
             "code_postal": siege_dg.get("code_postal", ""),
         },
         "dirigeants": dirigeants,
