@@ -364,6 +364,10 @@ def search_datagouv(args) -> tuple[list[dict], int]:
 
         try:
             resp = requests.get(DATAGOUV_BASE_URL, params=params, timeout=15)
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", 2))
+                time.sleep(retry_after)
+                resp = requests.get(DATAGOUV_BASE_URL, params=params, timeout=15)
             resp.raise_for_status()
             data = resp.json()
         except requests.exceptions.HTTPError as e:
@@ -387,7 +391,7 @@ def search_datagouv(args) -> tuple[list[dict], int]:
             break
 
         page += 1
-        time.sleep(0.1)
+        time.sleep(0.5)
 
     return companies[:max_resultats], total
 
