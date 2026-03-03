@@ -366,9 +366,12 @@ def search_datagouv(args) -> tuple[list[dict], int]:
             resp = requests.get(DATAGOUV_BASE_URL, params=params, timeout=15)
             resp.raise_for_status()
             data = resp.json()
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(
+                f"API data.gouv.fr erreur {e.response.status_code}: {e.response.text[:200]}"
+            ) from e
         except requests.exceptions.RequestException as e:
-            print(f"  Erreur data.gouv.fr : {e}")
-            break
+            raise RuntimeError(f"API data.gouv.fr inaccessible: {e}") from e
 
         if page == 1:
             total = data.get("total_results", 0)
